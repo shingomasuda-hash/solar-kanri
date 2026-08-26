@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "ES2022"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "ES2022"
+    ],
     "allowJs": false,
     "skipLibCheck": true,
     "strict": true,
@@ -14,17 +18,44 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
-    "types": ["node", "google.maps", "vitest/globals"],
-    "plugins": [{ "name": "next" }],
+    "types": [
+      "node",
+      "google.maps",
+      "vitest/globals"
+    ],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@core/*": ["./src/core/*"],
-      "@server/*": ["./src/server/*"],
-      "@tests/*": ["./tests/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@core/*": [
+        "./src/core/*"
+      ],
+      "@server/*": [
+        "./src/server/*"
+      ],
+      "@tests/*": [
+        "./tests/*"
+      ]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next", "out", "generated"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "generated"
+  ]
 }
