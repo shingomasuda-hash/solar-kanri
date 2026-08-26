@@ -14,6 +14,8 @@ import {
   PageHeader,
   Stat,
 } from '@/components/ui';
+import { isCopilotEnabled } from '@/server/services/copilot';
+import { CopilotPanel } from '@/components/copilot-panel';
 import { StatusChanger } from './status-changer';
 import { ActivityPanel } from './activity-panel';
 import { TaskPanel } from './task-panel';
@@ -117,6 +119,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             }))}
             canWrite={writable}
           />
+
+          {can(user, 'copilot:use') && (
+            <CopilotPanel projectId={project.id} enabled={isCopilotEnabled()} />
+          )}
 
           <NotePanel
             projectId={project.id}

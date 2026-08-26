@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/server/auth/service';
 import { UnauthenticatedError } from '@/server/auth/rbac';
 import { toFormState, type FormState } from '@/server/form-state';
+import { prisma } from '@/server/db/client';
+import { recordAudit } from '@/server/services/audit';
+import { requirePermission } from '@/server/auth/rbac';
 import {
   setPanelActive,
   setUserActive,
@@ -210,5 +213,69 @@ export async function setUserActiveAction(
     return toFormState(err);
   }
   revalidatePath('/admin/users');
+  return {};
+}
+
+export async function saveKnowledgeAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    requirePermission(user, 'master:write');
+
+    const id = String(formData.get('id') ?? '') || undefined;
+    const values = {
+      kind: String(formData.get('kind') ?? 'MANUAL') as never,
+      title: String(formData.get('title') ?? '').trim(),
+      body: String(formData.get('body') ?? '').trim(),
+      tags: String(formData.get('tags') ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+      sourceUrl: String(formData.get('sourceUrl') ?? '').trim() || null,
+      sourceCitation: String(formData.get('sourceCitation') ?? '').trim() || null,
+    };
+    if (values.title === '') throw new Error('タイトルを入力してください');
+    if (values.body === '') throw new Error('本文を入力してください');
+
+    const doc = id
+      ? await prisma.knowledgeDocument.update({ where: { id }, data: values })
+      : await prisma.knowledgeDocument.create({ data: values });
+
+    await recordAudit({
+      userId: user.id,
+      action: id ? 'knowledge.update' : 'knowledge.create',
+      entityType: 'KnowledgeDocument',
+      entityId: doc.id,
+      detail: { title: doc.title, kind: doc.kind },
+    });
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath('/admin/knowledge');
+  return {};
+}
+
+export async function setKnowledgeActiveAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    requirePermission(user, 'master:write');
+    const id = String(formData.get('id') ?? '');
+    const isActive = formData.get('isActive') === 'true';
+    await prisma.knowledgeDocument.update({ where: { id }, data: { isActive } });
+    await recordAudit({
+      userId: user.id,
+      action: isActive ? 'knowledge.activate' : 'knowledge.deactivate',
+      entityType: 'KnowledgeDocument',
+      entityId: id,
+    });
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath('/admin/knowledge');
   return {};
 }

@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: '/admin/tariffs', label: '電力単価', permission: 'master:read' },
   { href: '/admin/panels', label: 'パネル', permission: 'master:read' },
   { href: '/admin/irradiance', label: '日射量', permission: 'master:read' },
+  { href: '/admin/knowledge', label: 'ナレッジ', permission: 'master:read' },
   { href: '/admin/users', label: 'ユーザー', permission: 'user:manage' },
   { href: '/admin/health', label: 'システム状態', permission: 'health:read' },
   { href: '/admin/audit', label: '操作ログ', permission: 'audit:read' },
