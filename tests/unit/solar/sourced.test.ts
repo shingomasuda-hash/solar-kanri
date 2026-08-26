@@ -41,16 +41,11 @@ describe('findUnsourced', () => {
       module: { tempCoeff: sourced(-0.0035, REAL), degradation: placeholder(0.005, 'guess') },
       losses: { wiring: placeholder(0.98, 'guess') },
     };
-    expect(findUnsourced(tree).sort()).toEqual([
-      'losses.wiring',
-      'module.degradation',
-    ]);
+    expect(findUnsourced(tree).sort()).toEqual(['losses.wiring', 'module.degradation']);
   });
 
   it('walks arrays', () => {
-    expect(findUnsourced({ list: [sourced(1, REAL), placeholder(2, 'x')] })).toEqual([
-      'list[1]',
-    ]);
+    expect(findUnsourced({ list: [sourced(1, REAL), placeholder(2, 'x')] })).toEqual(['list[1]']);
   });
 
   it('ignores plain numbers, strings and nulls', () => {

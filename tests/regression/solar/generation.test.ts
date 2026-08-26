@@ -88,9 +88,7 @@ describe('generation engine: analytic identities', () => {
   it('reconstructs the annual total from the reported K factor', () => {
     // The JPEA cross-check: EPY = PAS x HA x K x 365.
     const r = simulateGeneration(input());
-    const ha = annualMeanDailyIrradiation(
-      SEASONAL_CLIMATE.planeOfArrayKWhPerM2PerDay,
-    );
+    const ha = annualMeanDailyIrradiation(SEASONAL_CLIMATE.planeOfArrayKWhPerM2PerDay);
     const jpea = 5 * ha * r.breakdown.overallDesignFactorK * 365;
     expect(jpea).toBeCloseTo(r.annualGenerationKWh, 6);
   });
@@ -183,9 +181,7 @@ describe('generation engine: refuses to guess', () => {
   });
 
   it('warns when irradiance is not plane-of-array', () => {
-    const r = simulateGeneration(
-      input({ irradiance: testDataset(SEASONAL_CLIMATE, false) }),
-    );
+    const r = simulateGeneration(input({ irradiance: testDataset(SEASONAL_CLIMATE, false) }));
     expect(r.warnings.join(' ')).toContain('IRRADIANCE_NOT_PLANE_OF_ARRAY');
   });
 
@@ -200,7 +196,10 @@ describe('generation engine: input validation', () => {
     expect(() =>
       simulateGeneration(
         input({
-          module: { ...TEST_MODULE, pmaxTempCoeffPerK: { ...TEST_MODULE.pmaxTempCoeffPerK, value: -0.35 } },
+          module: {
+            ...TEST_MODULE,
+            pmaxTempCoeffPerK: { ...TEST_MODULE.pmaxTempCoeffPerK, value: -0.35 },
+          },
         }),
       ),
     ).toThrow(/implausible/);
@@ -210,7 +209,10 @@ describe('generation engine: input validation', () => {
     expect(() =>
       simulateGeneration(
         input({
-          module: { ...TEST_MODULE, pmaxTempCoeffPerK: { ...TEST_MODULE.pmaxTempCoeffPerK, value: 0.004 } },
+          module: {
+            ...TEST_MODULE,
+            pmaxTempCoeffPerK: { ...TEST_MODULE.pmaxTempCoeffPerK, value: 0.004 },
+          },
         }),
       ),
     ).toThrow(/must be negative/);
@@ -239,7 +241,10 @@ describe('generation engine: input validation', () => {
     expect(() =>
       simulateGeneration(
         input({
-          module: { ...TEST_MODULE, annualDegradation: { ...TEST_MODULE.annualDegradation, value: 1 } },
+          module: {
+            ...TEST_MODULE,
+            annualDegradation: { ...TEST_MODULE.annualDegradation, value: 1 },
+          },
         }),
       ),
     ).toThrow(RangeError);

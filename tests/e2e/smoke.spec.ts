@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test';
 
-const ADMIN = { email: 'admin@example.com', password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMeImmediately!2026' };
+const ADMIN = {
+  email: 'admin@example.com',
+  password: process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMeImmediately!2026',
+};
 
 test.describe('authentication', () => {
   test('an anonymous visitor is sent to the login page', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('heading', { name: '太陽光営業統合プラットフォーム' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: '太陽光営業統合プラットフォーム' }),
+    ).toBeVisible();
   });
 
   test('the dashboard is not reachable without a session', async ({ page }) => {

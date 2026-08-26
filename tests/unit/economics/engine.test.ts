@@ -121,10 +121,7 @@ describe('economics: scheduled costs', () => {
     expect(r.yearly[14]!.scheduledCostJpy).toBe(250_000);
     expect(r.yearly[13]!.scheduledCostJpy).toBe(0);
     expect(r.yearly[15]!.scheduledCostJpy).toBe(0);
-    expect(r.yearly[14]!.netBenefitJpy).toBeCloseTo(
-      r.yearly[13]!.netBenefitJpy - 250_000,
-      6,
-    );
+    expect(r.yearly[14]!.netBenefitJpy).toBeCloseTo(r.yearly[13]!.netBenefitJpy - 250_000, 6);
   });
 
   it('can push a project past its payback', () => {
@@ -235,9 +232,9 @@ describe('economics: input validation', () => {
     expect(() =>
       calculateEconomics(input({ cost: { ...input().cost, totalCostJpy: -1 } })),
     ).toThrow(RangeError);
-    expect(() =>
-      calculateEconomics(input({ cost: { ...input().cost, subsidyJpy: -1 } })),
-    ).toThrow(RangeError);
+    expect(() => calculateEconomics(input({ cost: { ...input().cost, subsidyJpy: -1 } }))).toThrow(
+      RangeError,
+    );
   });
 
   it('rejects a self-consumption ratio outside [0, 1]', () => {

@@ -53,7 +53,13 @@ const config = [
   },
   {
     files: ['tests/**/*.ts', 'tests/**/*.tsx', '**/*.test.ts', 'prisma/seed.ts', 'scripts/**/*.ts'],
-    rules: { '@typescript-eslint/no-explicit-any': 'off', 'no-restricted-globals': 'off' },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-restricted-globals': 'off',
+      // Test data needs to be unique per run; the determinism ban exists to
+      // protect the engines, not the fixtures that exercise them.
+      'no-restricted-syntax': 'off',
+    },
   },
 ];
 

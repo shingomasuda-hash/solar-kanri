@@ -105,13 +105,14 @@ describe('PVGIS response mapping', () => {
 
 describe('PvgisProvider transport', () => {
   it('builds the documented URL', async () => {
-    const fetchImpl = vi.fn(async (_url: string) =>
-      new Response(
-        JSON.stringify({
-          outputs: { monthly: MONTHS.map((m) => ({ month: m, 'H(i)_m': 120, T2m: 15 })) },
-        }),
-        { status: 200 },
-      ),
+    const fetchImpl = vi.fn(
+      async (_url: string) =>
+        new Response(
+          JSON.stringify({
+            outputs: { monthly: MONTHS.map((m) => ({ month: m, 'H(i)_m': 120, T2m: 15 })) },
+          }),
+          { status: 200 },
+        ),
     );
     const p = new PvgisProvider({ fetchImpl: fetchImpl as unknown as typeof fetch });
     await p.fetch(QUERY);
@@ -271,7 +272,10 @@ describe('Google Solar adapter', () => {
 
   it('reports no-coverage rather than failing when Google does not model the building', async () => {
     const fetchImpl = vi.fn(async () => new Response('', { status: 404 }));
-    const p = new GoogleSolarProvider({ apiKey: 'k', fetchImpl: fetchImpl as unknown as typeof fetch });
+    const p = new GoogleSolarProvider({
+      apiKey: 'k',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     expect(await p.lookup({ latitude: 35, longitude: 139 })).toEqual({ status: 'no-coverage' });
   });
 
@@ -279,7 +283,10 @@ describe('Google Solar adapter', () => {
     const fetchImpl = vi.fn(async () => {
       throw new Error('offline');
     });
-    const p = new GoogleSolarProvider({ apiKey: 'k', fetchImpl: fetchImpl as unknown as typeof fetch });
+    const p = new GoogleSolarProvider({
+      apiKey: 'k',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const r = await p.lookup({ latitude: 35, longitude: 139 });
     expect(r.status).toBe('unavailable');
   });

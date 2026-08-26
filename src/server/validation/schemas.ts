@@ -5,6 +5,29 @@ import { z } from 'zod';
  * Client-side validation is a convenience; this is the authority.
  */
 
+/**
+ * HTML forms and FormData give three different shapes for "not filled in":
+ * `''` from a rendered empty field, `null` from `formData.get()` when the field
+ * is absent entirely, and `undefined` from a JSON caller. All three mean the
+ * same thing, so every optional field normalises them to `undefined` before
+ * validation.
+ *
+ * Getting this wrong is not a cosmetic bug: it produces a validation failure on
+ * a field the form does not even render, so the operator sees a generic "check
+ * your input" message with nothing on screen to correct.
+ */
+function optional<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? undefined : v),
+    schema.optional(),
+  );
+}
+
+const optionalText = (max: number) => optional(z.string().trim().max(max));
+const optionalCuid = () => optional(z.string().cuid());
+const optionalDate = () => optional(z.coerce.date());
+const optionalUrl = () => optional(z.string().url());
+
 export const emailSchema = z
   .string()
   .trim()
@@ -25,42 +48,42 @@ export const postalCodeSchema = z
 export const customerSchema = z.object({
   type: z.enum(['INDIVIDUAL', 'CORPORATE']),
   name: z.string().trim().min(1, 'お名前を入力してください').max(200),
-  nameKana: z.string().trim().max(200).optional().or(z.literal('')),
-  companyName: z.string().trim().max(200).optional().or(z.literal('')),
-  email: emailSchema.optional().or(z.literal('')),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^[\d\-+() ]{7,20}$/, '電話番号の形式が正しくありません')
-    .optional()
-    .or(z.literal('')),
-  postalCode: postalCodeSchema.optional().or(z.literal('')),
-  prefecture: z.string().trim().max(20).optional().or(z.literal('')),
-  city: z.string().trim().max(100).optional().or(z.literal('')),
-  addressLine: z.string().trim().max(300).optional().or(z.literal('')),
-  source: z.string().trim().max(100).optional().or(z.literal('')),
-  notes: z.string().trim().max(5000).optional().or(z.literal('')),
-  ownerId: z.string().cuid().optional().or(z.literal('')),
+  nameKana: optionalText(200),
+  companyName: optionalText(200),
+  email: optional(emailSchema),
+  phone: optional(
+    z
+      .string()
+      .trim()
+      .regex(/^[\d\-+() ]{7,20}$/, '電話番号の形式が正しくありません'),
+  ),
+  postalCode: optional(postalCodeSchema),
+  prefecture: optionalText(20),
+  city: optionalText(100),
+  addressLine: optionalText(300),
+  source: optionalText(100),
+  notes: optionalText(5000),
+  ownerId: optionalCuid(),
 });
 
 export const projectSchema = z.object({
   title: z.string().trim().min(1, '案件名を入力してください').max(200),
   customerId: z.string().cuid('顧客を選択してください'),
-  propertyId: z.string().cuid().optional().or(z.literal('')),
+  propertyId: optionalCuid(),
   statusId: z.string().cuid('ステータスを選択してください'),
-  ownerId: z.string().cuid().optional().or(z.literal('')),
-  expectedCloseDate: z.coerce.date().optional().nullable(),
-  nextActionAt: z.coerce.date().optional().nullable(),
-  nextActionNote: z.string().trim().max(500).optional().or(z.literal('')),
+  ownerId: optionalCuid(),
+  expectedCloseDate: optionalDate(),
+  nextActionAt: optionalDate(),
+  nextActionNote: optionalText(500),
 });
 
 export const propertySchema = z.object({
   customerId: z.string().cuid(),
   label: z.string().trim().min(1).max(100).default('本邸'),
-  postalCode: postalCodeSchema.optional().or(z.literal('')),
-  prefecture: z.string().trim().max(20).optional().or(z.literal('')),
-  city: z.string().trim().max(100).optional().or(z.literal('')),
-  addressLine: z.string().trim().max(300).optional().or(z.literal('')),
+  postalCode: optional(postalCodeSchema),
+  prefecture: optionalText(20),
+  city: optionalText(100),
+  addressLine: optionalText(300),
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),
 });
@@ -91,7 +114,7 @@ export const roofFaceSchema = z.object({
 export const exclusionZoneSchema = z.object({
   roofFaceId: z.string().cuid(),
   kind: z.enum(['SKYLIGHT', 'CHIMNEY', 'AC_UNIT', 'EQUIPMENT', 'MAINTENANCE_AREA', 'OTHER']),
-  label: z.string().trim().max(100).optional().or(z.literal('')),
+  label: optionalText(100),
   outline: geoJsonPolygonSchema,
   clearanceM: z.number().min(0).max(5).default(0.3),
 });
@@ -119,22 +142,22 @@ export const panelModelSchema = z.object({
   annualDegradation: z.number().min(0).max(0.1),
   productWarrantyYears: z.number().int().min(0).max(50).optional().nullable(),
   performanceWarrantyYears: z.number().int().min(0).max(50).optional().nullable(),
-  datasheetUrl: z.string().url().optional().or(z.literal('')),
-  datasheetVersion: z.string().trim().max(100).optional().or(z.literal('')),
+  datasheetUrl: optionalUrl(),
+  datasheetVersion: optionalText(100),
   sourceCitation: z
     .string()
     .trim()
     .min(1, '出典を入力してください（データシート名・版・表番号など）')
     .max(500),
-  sourceUrl: z.string().url().optional().or(z.literal('')),
-  effectiveDate: z.coerce.date().optional().nullable(),
+  sourceUrl: optionalUrl(),
+  effectiveDate: optionalDate(),
 });
 
 export const coefficientSchema = z.object({
   key: z.string().trim().min(1).max(100),
   label: z.string().trim().min(1).max(200),
   value: z.number().finite(),
-  unit: z.string().trim().max(30).optional().or(z.literal('')),
+  unit: optionalText(30),
   sourceKind: z.enum([
     'MANUFACTURER_DATASHEET',
     'OFFICIAL_STANDARD',
@@ -144,9 +167,9 @@ export const coefficientSchema = z.object({
     'UNVERIFIED_PLACEHOLDER',
   ]),
   sourceCitation: z.string().trim().min(1, '出典は必須です').max(500),
-  sourceUrl: z.string().url().optional().or(z.literal('')),
-  effectiveDate: z.coerce.date().optional().nullable(),
-  note: z.string().trim().max(1000).optional().or(z.literal('')),
+  sourceUrl: optionalUrl(),
+  effectiveDate: optionalDate(),
+  note: optionalText(1000),
 });
 
 export const tariffSchema = z.object({
@@ -168,12 +191,12 @@ export const tariffSchema = z.object({
     'UNVERIFIED_PLACEHOLDER',
   ]),
   sourceCitation: z.string().trim().min(1, '出典は必須です').max(500),
-  sourceUrl: z.string().url().optional().or(z.literal('')),
+  sourceUrl: optionalUrl(),
 });
 
 export const activitySchema = z.object({
-  projectId: z.string().cuid().optional().or(z.literal('')),
-  customerId: z.string().cuid().optional().or(z.literal('')),
+  projectId: optionalCuid(),
+  customerId: optionalCuid(),
   kind: z.enum([
     'CALL',
     'EMAIL',
@@ -185,16 +208,16 @@ export const activitySchema = z.object({
     'OTHER',
   ]),
   subject: z.string().trim().min(1, '件名を入力してください').max(200),
-  body: z.string().trim().max(10_000).optional().or(z.literal('')),
+  body: optionalText(10_000),
   occurredAt: z.coerce.date(),
 });
 
 export const taskSchema = z.object({
   projectId: z.string().cuid(),
   title: z.string().trim().min(1, 'タスク名を入力してください').max(200),
-  description: z.string().trim().max(5000).optional().or(z.literal('')),
-  dueAt: z.coerce.date().optional().nullable(),
-  assigneeId: z.string().cuid().optional().or(z.literal('')),
+  description: optionalText(5000),
+  dueAt: optionalDate(),
+  assigneeId: optionalCuid(),
 });
 
 export const noteSchema = z.object({
@@ -213,7 +236,7 @@ export const quotationItemSchema = z.object({
     'OTHER',
   ]),
   name: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(1000).optional().or(z.literal('')),
+  description: optionalText(1000),
   quantity: z.number().min(0).max(100_000),
   unit: z.string().trim().min(1).max(20).default('式'),
   // Money is integer JPY throughout. Floats here are how rounding bugs start.
@@ -222,13 +245,13 @@ export const quotationItemSchema = z.object({
 
 export const quotationSchema = z.object({
   projectId: z.string().cuid(),
-  simulationId: z.string().cuid().optional().or(z.literal('')),
+  simulationId: optionalCuid(),
   title: z.string().trim().min(1).max(200),
-  validUntil: z.coerce.date().optional().nullable(),
+  validUntil: optionalDate(),
   discountJpy: z.number().int().min(0).max(1_000_000_000).default(0),
   subsidyJpy: z.number().int().min(0).max(1_000_000_000).default(0),
   taxRate: z.number().min(0).max(1).default(0.1),
-  notes: z.string().trim().max(10_000).optional().or(z.literal('')),
+  notes: optionalText(10_000),
   items: z.array(quotationItemSchema).max(200),
 });
 

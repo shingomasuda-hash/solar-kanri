@@ -22,7 +22,7 @@
     "test:geometry": "vitest run tests/regression/geometry",
     "test:solar": "vitest run tests/regression/solar",
     "test:regression": "vitest run tests/regression",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -30,7 +30,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test",
-    "gate": "npm run verify && npm run build"
+    "gate": "npm run verify && npm run test:e2e",
+    "test:e2e:only": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
