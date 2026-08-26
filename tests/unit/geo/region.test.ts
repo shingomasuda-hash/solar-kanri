@@ -200,3 +200,35 @@ describe('orientedRectsOverlap', () => {
     expect(orientedRectsOverlap(a, b)).toBe(orientedRectsOverlap(b, a));
   });
 });
+
+describe('floating-point tolerance at the boundary', () => {
+  /**
+   * Regression: rotating a layout back from the search frame leaves ~1e-15 m of
+   * drift, so a module flush with the eaves can land a hair outside the index's
+   * bounding box. The bbox guards must not reject it before the epsilon-tolerant
+   * boundary test gets a chance to run.
+   */
+  const region = new Region([square(1, 1, 58)]);
+
+  it('accepts a point one part in 1e15 outside the extent', () => {
+    expect(region.containsPoint({ x: 30, y: 1 - 1.8e-15 })).toBe(true);
+    expect(region.containsPoint({ x: 1 - 1.8e-15, y: 30 })).toBe(true);
+    expect(region.containsPoint({ x: 59 + 1.8e-15, y: 30 })).toBe(true);
+    expect(region.containsPoint({ x: 30, y: 59 + 1.8e-15 })).toBe(true);
+  });
+
+  it('accepts a rectangle flush with the boundary after rotation drift', () => {
+    const corners = [
+      { x: 58.666000000000004, y: 0.9999999999999982 },
+      { x: 58.666000000000004, y: 1.9999999999999982 },
+      { x: 57.016, y: 1.9999999999999982 },
+      { x: 57.016, y: 0.9999999999999982 },
+    ];
+    expect(region.containsRect(corners)).toBe(true);
+  });
+
+  it('still rejects a point genuinely outside', () => {
+    expect(region.containsPoint({ x: 30, y: 0.99 })).toBe(false);
+    expect(region.containsPoint({ x: 59.01, y: 30 })).toBe(false);
+  });
+});

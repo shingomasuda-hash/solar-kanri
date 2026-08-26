@@ -30,8 +30,13 @@ export class Region {
   private readonly rows: number;
   /** cellIndex -> edge indices overlapping that cell. */
   private readonly grid: Int32Array[];
+  /** 1 when the cell holds no boundary edge AND lies inside the region. */
+  private readonly cellFullyInside: Uint8Array;
+  /** Per-edge visit stamp, so a multi-cell edge is only tested once per query. */
+  private readonly stamp: Int32Array;
+  private queryId = 0;
 
-  constructor(polygons: MultiPolygon2D, targetCell = 2) {
+  constructor(polygons: MultiPolygon2D, targetCell?: number) {
     this.polygons = polygons;
     this.area = polygons.reduce((s, p) => s + polygonArea(p), 0);
 
@@ -71,6 +76,8 @@ export class Region {
       }
     }
 
+    this.stamp = new Int32Array(Math.max(n, 1)).fill(-1);
+
     if (n === 0) {
       this.minX = 0;
       this.minY = 0;
@@ -78,6 +85,7 @@ export class Region {
       this.cols = 1;
       this.rows = 1;
       this.grid = [new Int32Array(0)];
+      this.cellFullyInside = new Uint8Array(1);
       return;
     }
 
@@ -85,8 +93,10 @@ export class Region {
     this.minY = minY;
     const w = Math.max(maxX - minX, 1e-6);
     const h = Math.max(maxY - minY, 1e-6);
-    // Keep the grid between 1 and ~250k cells whatever the roof size.
-    const cell = Math.max(targetCell, Math.sqrt((w * h) / 65536) || targetCell);
+    // Aim for a cell a little smaller than a module so a panel-sized query
+    // touches only a handful of cells, while capping the grid at ~20k cells so
+    // a 60 x 40 m industrial roof does not blow up the index.
+    const cell = targetCell ?? Math.max(0.5, Math.sqrt((w * h) / 20000));
     this.cell = cell;
     this.cols = Math.max(1, Math.ceil(w / cell));
     this.rows = Math.max(1, Math.ceil(h / cell));
@@ -102,6 +112,21 @@ export class Region {
       }
     }
     this.grid = buckets.map((b) => Int32Array.from(b));
+
+    // Precompute which cells are entirely interior. A cell holding no boundary
+    // edge is wholly inside or wholly outside, so one centre test settles it.
+    // This is what makes a large roof cheap: almost every query is answered by
+    // the fast path below without touching a single edge.
+    this.cellFullyInside = new Uint8Array(this.cols * this.rows);
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const idx = r * this.cols + c;
+        if (this.grid[idx]!.length > 0) continue;
+        const px = this.minX + (c + 0.5) * cell;
+        const py = this.minY + (r + 0.5) * cell;
+        if (this.containsPointSlow({ x: px, y: py })) this.cellFullyInside[idx] = 1;
+      }
+    }
   }
 
   get isEmpty(): boolean {
@@ -122,8 +147,49 @@ export class Region {
    * True when the point lies inside the region. Boundary points count as
    * inside — including the boundary of a hole, since a panel may sit flush
    * against a skylight cut-out.
+   *
+   * Uses the grid: the crossing ray only has to consider edges in the cells to
+   * the point's right, not every edge in the roof.
    */
   containsPoint(p: Point2D, epsilon = 1e-9): boolean {
+    if (this.edgeCount === 0) return false;
+    // Pad by epsilon: a point that rounds a hair outside the extent may still
+    // be on the boundary, which counts as inside. Rejecting on the raw bbox
+    // would discard modules sitting flush against the eaves after a rotation
+    // round-trip introduces ~1e-15 m of drift.
+    if (p.y < this.minY - epsilon || p.y > this.minY + this.rows * this.cell + epsilon) {
+      return false;
+    }
+    if (p.x > this.minX + this.cols * this.cell + epsilon) return false;
+    const row = this.rowOf(p.y);
+
+    const id = ++this.queryId;
+    let crossings = 0;
+    for (let c = this.colOf(p.x); c < this.cols; c++) {
+      const bucket = this.grid[row * this.cols + c]!;
+      for (let bi = 0; bi < bucket.length; bi++) {
+        const e = bucket[bi]!;
+        if (this.stamp[e] === id) continue;
+        this.stamp[e] = id;
+
+        const ax = this.edgesX1[e]!;
+        const ay = this.edgesY1[e]!;
+        const bx = this.edgesX2[e]!;
+        const by = this.edgesY2[e]!;
+
+        if (pointOnSegmentRaw(p.x, p.y, ax, ay, bx, by, epsilon)) return true;
+        // Half-open rule on y keeps vertex-grazing rays consistent.
+        if (ay > p.y !== by > p.y) {
+          const xAt = ((bx - ax) * (p.y - ay)) / (by - ay) + ax;
+          if (p.x < xAt) crossings++;
+        }
+      }
+    }
+    return crossings % 2 === 1;
+  }
+
+  /** Unindexed reference implementation; used to seed the interior-cell map. */
+  private containsPointSlow(p: Point2D, epsilon = 1e-9): boolean {
     for (const poly of this.polygons) {
       if (!pointInRing(p, poly.outer, epsilon)) continue;
       let inHole = false;
@@ -150,15 +216,39 @@ export class Region {
   containsRect(corners: readonly Point2D[], epsilon = 1e-9): boolean {
     if (this.isEmpty || corners.length < 3) return false;
 
-    for (const c of corners) {
-      if (!this.containsPoint(c, epsilon)) return false;
+    const rb = bbox(corners);
+    // Outside the indexed extent entirely: nothing to do. Padded by epsilon for
+    // the same reason as containsPoint.
+    if (
+      rb.maxX < this.minX - epsilon ||
+      rb.minX > this.minX + this.cols * this.cell + epsilon ||
+      rb.maxY < this.minY - epsilon ||
+      rb.minY > this.minY + this.rows * this.cell + epsilon
+    ) {
+      return false;
     }
 
-    const rb = bbox(corners);
     const c0 = this.colOf(rb.minX);
     const c1 = this.colOf(rb.maxX);
     const r0 = this.rowOf(rb.minY);
     const r1 = this.rowOf(rb.maxY);
+
+    // Fast path: every cell the rectangle can touch is known to be interior.
+    // On a large roof this answers the overwhelming majority of queries.
+    let allInterior = true;
+    for (let r = r0; r <= r1 && allInterior; r++) {
+      for (let c = c0; c <= c1; c++) {
+        if (this.cellFullyInside[r * this.cols + c] !== 1) {
+          allInterior = false;
+          break;
+        }
+      }
+    }
+    if (allInterior) return true;
+
+    for (const c of corners) {
+      if (!this.containsPoint(c, epsilon)) return false;
+    }
 
     const m = corners.length;
     for (let r = r0; r <= r1; r++) {
@@ -237,6 +327,25 @@ export function segmentsProperlyCross(
 
 function cross(ax: number, ay: number, bx: number, by: number, px: number, py: number): number {
   return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+}
+
+/** Distance-tolerant point-on-segment test on raw coordinates (no allocation). */
+function pointOnSegmentRaw(
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  epsilon: number,
+): boolean {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len < epsilon) return Math.hypot(px - ax, py - ay) <= epsilon;
+  if (Math.abs(dx * (py - ay) - dy * (px - ax)) / len > epsilon) return false;
+  const dot = (px - ax) * dx + (py - ay) * dy;
+  return dot >= -epsilon && dot <= len * len + epsilon;
 }
 
 /** True when `p` is strictly inside a convex, counter-clockwise polygon. */
