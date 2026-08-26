@@ -86,21 +86,43 @@ export async function createProject(user: SessionUser, input: ProjectInput) {
   requirePermission(user, 'project:write');
   const data = projectSchema.parse(input);
 
-  const project = await prisma.$transaction(async (tx) =>
-    tx.project.create({
+  const project = await prisma.$transaction(async (tx) => {
+    let propertyId = blankToNull(data.propertyId);
+
+    // Every project needs somewhere to hang its geometry. Creating it here,
+    // inside the same transaction, keeps the design page a pure read: a page
+    // that writes during render can be triggered by a link prefetch, and
+    // produces records nobody deliberately created.
+    if (!propertyId) {
+      const customer = await tx.customer.findUniqueOrThrow({
+        where: { id: data.customerId },
+        select: {
+          postalCode: true,
+          prefecture: true,
+          city: true,
+          addressLine: true,
+        },
+      });
+      const property = await tx.property.create({
+        data: { customerId: data.customerId, label: '本邸', ...customer },
+      });
+      propertyId = property.id;
+    }
+
+    return tx.project.create({
       data: {
         code: await nextProjectCode(tx as unknown as typeof prisma),
         title: data.title,
         customerId: data.customerId,
-        propertyId: blankToNull(data.propertyId),
+        propertyId,
         statusId: data.statusId,
         ownerId: blankToNull(data.ownerId) ?? user.id,
         expectedCloseDate: data.expectedCloseDate ?? null,
         nextActionAt: data.nextActionAt ?? null,
         nextActionNote: blankToNull(data.nextActionNote),
       },
-    }),
-  );
+    });
+  });
 
   await recordAudit({
     userId: user.id,

@@ -17,30 +17,16 @@ export default async function DesignPage({ params }: { params: Promise<{ id: str
   const project = await getProject(user, id);
   if (!project) notFound();
 
-  // A project needs a property to hang geometry off. Creating it on demand
-  // keeps the operator moving instead of sending them to another form first.
-  let property = project.property;
-  if (!property && can(user, 'project:write')) {
-    const created = await prisma.property.create({
-      data: {
-        customerId: project.customerId,
-        label: '本邸',
-        postalCode: project.customer.postalCode,
-        prefecture: project.customer.prefecture,
-        city: project.customer.city,
-        addressLine: project.customer.addressLine,
-      },
-    });
-    await prisma.project.update({ where: { id }, data: { propertyId: created.id } });
-    property = { ...created, roofFaces: [] };
-  }
+  // Read only. The property is created with the project, so this page never
+  // writes — a page that writes during render can fire on a link prefetch.
+  const property = project.property;
 
   if (!property) {
     return (
       <>
         <PageHeader title="屋根・パネル設計" subtitle={project.title} />
         <Alert tone="warning" title="物件が未登録です">
-          この案件にはまだ物件が紐づいていません。編集権限のある担当者に依頼してください。
+          この案件には物件が紐づいていません。案件編集画面から物件を選択してください。
         </Alert>
       </>
     );
