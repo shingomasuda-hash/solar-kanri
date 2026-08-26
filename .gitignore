@@ -18,3 +18,4 @@ blob-report/
 .playwright/
 /tmp/
 /generated/
+.gate.lock/

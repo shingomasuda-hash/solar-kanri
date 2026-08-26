@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: solar
+          POSTGRES_PASSWORD: solar_ci
+          POSTGRES_DB: solar_kanri
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://solar:solar_ci@localhost:5432/solar_kanri?schema=public
+      SESSION_SECRET: ci-only-secret-at-least-32-characters-long
+      SEED_ADMIN_PASSWORD: CiOnlyPassword!2026
+      # Deliberately unset: the suite must prove the platform works without
+      # Google Maps and without an AI provider. See ADR-002 and ADR-006.
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ''
+      ANTHROPIC_API_KEY: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Seed reference data
+        run: npm run db:seed
+
+      - name: Format check
+        run: npx prettier --check "src/**/*.{ts,tsx,css}" "tests/**/*.ts"
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit and regression tests
+        run: npx vitest run tests/unit tests/regression
+
+      # Named separately so a skipped integration suite is visible in the
+      # summary rather than hidden inside a larger green step.
+      - name: Integration tests
+        run: npx vitest run tests/integration
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Advisory: a new advisory against a transitive dev dependency should not
+      # block a release on its own. Known accepted findings are recorded in
+      # docs/open-issues.md.
+      - name: npm audit (production dependencies)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

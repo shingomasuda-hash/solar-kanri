@@ -179,8 +179,10 @@ do not work around it — pass the value in as an argument.
 
 ```
 npm run dev          Development server
-npm run gate         Everything: format, lint, typecheck, test, build
-npm run test         All unit + integration + regression tests
+npm run gate         Everything: format, lint, typecheck, test, build, browser
+npm run gate:fast    The same without the browser suite
+npm run test         Unit + integration + regression tests
+npm run test:integration  Server layer against a real database (skips without one)
 npm run test:geometry  Panel placement regression suite
 npm run test:solar     Solar calculation regression + golden suite
 npm run test:e2e       Playwright browser tests

@@ -155,3 +155,20 @@ module flush with the eaves landed marginally outside the index extent and was
 discarded before the epsilon-tolerant boundary test could run. Found by the
 panel-placement regression suite on the 60×40 m industrial fixture. Guards are
 now epsilon-padded, with a dedicated regression test.
+
+### OI-106 — Rate limit state is per application instance — ACCEPTED RISK
+
+Login rate limiting uses in-process counters, so N instances allow N × the
+limit. For one or two instances this is an acceptable trade against adding Redis
+to the stack. The store interface in `src/server/auth/rate-limit.ts` is narrow
+enough that swapping it for a shared store is a small change. Revisit before
+scaling out horizontally. See `docs/security-review.md` S-3.
+
+### OI-107 — Module state resets across Next.js bundles — RESOLVED
+
+Login rate limiting silently became per-bundle because Next.js can include a
+module in more than one server bundle, giving each copy its own counter. Now
+held on `globalThis`, the same pattern the Prisma client uses. Worth knowing
+generally: **module-level mutable state is not reliable in this framework**. The
+unit tests could not catch it (they import the module once); the browser test
+did.
