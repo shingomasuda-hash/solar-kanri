@@ -133,8 +133,13 @@ export async function runSimulation(user: SessionUser, request: SimulationReques
     });
   };
 
+  // A module row is only a datasheet source once a human has actually checked
+  // it against the datasheet. The seeded SAMPLE module has verifiedAt = null
+  // and its citation says so, and it must be refused exactly like an unsourced
+  // coefficient — otherwise a temperature coefficient nobody verified would
+  // reach a customer-facing figure.
   const panelSource = {
-    kind: 'manufacturer-datasheet' as const,
+    kind: (panel.verifiedAt ? 'manufacturer-datasheet' : 'unverified-placeholder') as SourceKind,
     citation: panel.sourceCitation,
     url: panel.sourceUrl ?? undefined,
     effectiveDate: panel.effectiveDate?.toISOString(),

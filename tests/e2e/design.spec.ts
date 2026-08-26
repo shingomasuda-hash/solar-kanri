@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login, uniqueName } from './helpers';
+import { login, setCoefficientSource, uniqueName } from './helpers';
 
 /**
  * The design pipeline: position → roof outline → exclusion → auto layout →
@@ -173,33 +173,48 @@ test.describe('design pipeline', () => {
   });
 
   test('simulation refuses to run on unverified coefficients', async ({ page }) => {
-    // The single most important behaviour in the system: a fresh install must
-    // not produce a customer-facing figure from coefficients nobody has
-    // sourced. It must fail closed, and say exactly which ones are missing.
+    // The single most important behaviour in the system: it must not produce a
+    // customer-facing figure from coefficients nobody has sourced. It must fail
+    // closed, and say exactly which ones are missing.
+    //
+    // The precondition is established here rather than assumed from the seed:
+    // coefficients are global master data, and another spec that sources them
+    // would otherwise silently turn this test green.
     await login(page, 'admin');
-    await createProjectWithDesign(page);
-
-    await page.getByText('緯度・経度を直接入力', { exact: true }).click();
-    await page.getByLabel('緯度').fill('35.6812');
-    await page.getByLabel('経度').fill('139.767');
-    await page.getByRole('button', { name: '位置を設定' }).click();
-
-    await page.getByLabel('屋根の外周（GeoJSON Polygon）').fill(JSON.stringify(ROOF_OUTLINE));
-    await page.getByLabel('屋根勾配').selectOption({ label: '4寸（21.8°）' });
-    await page.getByRole('button', { name: '屋根面を保存' }).click();
-    await page.getByLabel('パネル型番').selectOption({ index: 0 });
-    await page.getByRole('button', { name: '自動配置を実行' }).click();
-    await expect(page.getByTestId('layout-result')).toBeVisible({ timeout: 30_000 });
-
-    await page.getByRole('button', { name: 'シミュレーション実行' }).click();
-    await expect(page.getByTestId('simulation-error')).toBeVisible({ timeout: 30_000 });
-    const message = await page.getByTestId('simulation-error').textContent();
-    // Either the coefficients are refused, or irradiance data is missing —
-    // both are correct refusals, and both must name what to fix.
-    expect(message).toMatch(/出典|日射量/);
-    expect(message).toMatch(/管理画面|プロバイダ/);
+    await setCoefficientSource(page, 'wiringFactor', 'UNVERIFIED_PLACEHOLDER');
+    try {
+      await runRefusalScenario(page);
+    } finally {
+      // Restore, so this test does not break the ones that need a working
+      // simulation.
+      await setCoefficientSource(page, 'wiringFactor', 'ADMINISTRATOR_INPUT');
+    }
   });
 });
+
+async function runRefusalScenario(page: Page): Promise<void> {
+  await createProjectWithDesign(page);
+
+  await page.getByText('緯度・経度を直接入力', { exact: true }).click();
+  await page.getByLabel('緯度').fill('35.6812');
+  await page.getByLabel('経度').fill('139.767');
+  await page.getByRole('button', { name: '位置を設定' }).click();
+
+  await page.getByLabel('屋根の外周（GeoJSON Polygon）').fill(JSON.stringify(ROOF_OUTLINE));
+  await page.getByLabel('屋根勾配').selectOption({ label: '4寸（21.8°）' });
+  await page.getByRole('button', { name: '屋根面を保存' }).click();
+  await page.getByLabel('パネル型番').selectOption({ index: 0 });
+  await page.getByRole('button', { name: '自動配置を実行' }).click();
+  await expect(page.getByTestId('layout-result')).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole('button', { name: 'シミュレーション実行' }).click();
+  await expect(page.getByTestId('simulation-error')).toBeVisible({ timeout: 30_000 });
+  const message = await page.getByTestId('simulation-error').textContent();
+  // Either the coefficients are refused, or irradiance data is missing — both
+  // are correct refusals, and both must name what to fix.
+  expect(message).toMatch(/出典|日射量/);
+  expect(message).toMatch(/管理画面|プロバイダ/);
+}
 
 test.describe('design access control', () => {
   test('a viewer sees the design page read-only', async ({ page }) => {

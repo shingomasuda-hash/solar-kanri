@@ -120,7 +120,17 @@ export function Field({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={htmlFor} className="text-sm font-medium">
         {label}
-        {required && <span className="ml-1 text-red-600">*</span>}
+        {/*
+          Hidden from assistive tech: the control's own `required` attribute
+          already announces the requirement, and letting the asterisk into the
+          accessible name turns every label into "氏名*", which reads badly and
+          makes labels ambiguous to match on.
+        */}
+        {required && (
+          <span aria-hidden="true" className="ml-1 text-red-600">
+            *
+          </span>
+        )}
       </label>
       {children}
       {hint && !error && <p className="text-xs text-[var(--text-muted)]">{hint}</p>}
