@@ -167,6 +167,69 @@ async function seedTariff(): Promise<void> {
   console.log('  tariffs: 1 (unverified — see OI-003)');
 }
 
+/**
+ * A single generic sample module and inverter so the design flow is usable on a
+ * fresh install. Dimensions are deliberately round numbers and the manufacturer
+ * is "SAMPLE" — these are NOT a real product and the citation says so, so the
+ * engines treat the electrical figures as unverified.
+ */
+async function seedSampleProducts(): Promise<void> {
+  await prisma.panelModel.upsert({
+    where: {
+      manufacturer_model_datasheetVersion: {
+        manufacturer: 'SAMPLE',
+        model: 'SAMPLE-400',
+        datasheetVersion: 'sample-1',
+      },
+    },
+    update: {},
+    create: {
+      manufacturer: 'SAMPLE',
+      model: 'SAMPLE-400',
+      datasheetVersion: 'sample-1',
+      widthMm: 1000,
+      heightMm: 1650,
+      thicknessMm: 35,
+      weightKg: 20,
+      ratedPowerW: 400,
+      efficiencyPct: 20.2,
+      pmaxTempCoeffPerK: -0.0035,
+      noctC: 44,
+      annualDegradation: 0.005,
+      productWarrantyYears: 15,
+      performanceWarrantyYears: 25,
+      sourceCitation:
+        'SAMPLE PRODUCT — not a real module. Replace with a manufacturer datasheet before quoting.',
+      isActive: true,
+    },
+  });
+
+  await prisma.inverterModel.upsert({
+    where: {
+      manufacturer_model_datasheetVersion: {
+        manufacturer: 'SAMPLE',
+        model: 'SAMPLE-PCS-55',
+        datasheetVersion: 'sample-1',
+      },
+    },
+    update: {},
+    create: {
+      manufacturer: 'SAMPLE',
+      model: 'SAMPLE-PCS-55',
+      datasheetVersion: 'sample-1',
+      ratedOutputW: 5500,
+      maxInputW: 7000,
+      peakEfficiency: 0.965,
+      weightedEfficiency: 0.955,
+      mpptCount: 2,
+      sourceCitation:
+        'SAMPLE PRODUCT — not a real inverter. Replace with a manufacturer datasheet before quoting.',
+      isActive: true,
+    },
+  });
+  console.log('  sample products: 1 panel, 1 inverter (SAMPLE — replace before quoting)');
+}
+
 async function seedSettings(): Promise<void> {
   const settings = [
     { key: 'company.name', value: '株式会社サンプル', label: '会社名' },
@@ -193,6 +256,7 @@ async function main(): Promise<void> {
   console.log('Seeding reference data...');
   await seedUsers();
   await seedStatuses();
+  await seedSampleProducts();
   await seedCoefficients();
   await seedTariff();
   await seedSettings();
