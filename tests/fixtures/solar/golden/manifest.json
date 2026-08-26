@@ -1,0 +1,7 @@
+{
+  "$schema": "./schema.md",
+  "status": "AWAITING_REFERENCE_DATA",
+  "statusNote": "No third-party reference case has been loaded yet. See docs/open-issues.md item OI-001. While status is AWAITING_REFERENCE_DATA the comparison tests self-test the harness against a synthetic case and report the gap loudly instead of silently passing. Set status to ACTIVE once at least one real reference case is present; the suite then becomes mandatory and an empty directory fails the build.",
+  "defaultTolerancePct": 5.0,
+  "cases": []
+}
