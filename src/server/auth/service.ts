@@ -11,6 +11,14 @@ import {
   type SessionUser,
 } from './session';
 import { recordAudit } from '../services/audit';
+import {
+  ACCOUNT_POLICY,
+  ADDRESS_POLICY,
+  RateLimitedError,
+  checkRateLimit,
+  clearRateLimit,
+  recordFailure,
+} from './rate-limit';
 
 /**
  * A deliberately vague failure. Distinguishing "no such user" from "wrong
@@ -41,15 +49,54 @@ export async function login(
   context: LoginContext = {},
 ): Promise<{ user: SessionUser; token: string; expiresAt: Date }> {
   const normalized = email.trim().toLowerCase();
+
+  // Checked BEFORE the database is touched, so a flood costs a map lookup
+  // rather than a query and a bcrypt comparison. Only FAILURES are counted —
+  // see rate-limit.ts — so a busy office never throttles itself.
+  const accountKey = `account:${normalized}`;
+  const addressKey = context.ipAddress ? `ip:${context.ipAddress}` : null;
+
+  const account = checkRateLimit(accountKey, ACCOUNT_POLICY);
+  if (!account.allowed) {
+    await recordAudit({
+      action: 'auth.login.rate_limited',
+      entityType: 'User',
+      detail: { email: normalized, scope: 'account' },
+      ipAddress: context.ipAddress,
+      userAgent: context.userAgent,
+    });
+    throw new RateLimitedError(account.resetAt);
+  }
+  if (addressKey) {
+    const address = checkRateLimit(addressKey, ADDRESS_POLICY);
+    if (!address.allowed) {
+      await recordAudit({
+        action: 'auth.login.rate_limited',
+        entityType: 'User',
+        detail: { scope: 'address' },
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+      });
+      throw new RateLimitedError(address.resetAt);
+    }
+  }
+
+  const noteFailure = (): void => {
+    recordFailure(accountKey, ACCOUNT_POLICY);
+    if (addressKey) recordFailure(addressKey, ADDRESS_POLICY);
+  };
+
   const user = await prisma.user.findUnique({ where: { email: normalized } });
 
   if (!user) {
     // Burn comparable time on a dummy hash so response timing does not reveal
     // whether the address exists.
     await verifyPassword(password, DUMMY_HASH);
+    noteFailure();
     throw new InvalidCredentialsError();
   }
   if (!(await verifyPassword(password, user.passwordHash))) {
+    noteFailure();
     await recordAudit({
       userId: user.id,
       action: 'auth.login.failed',
@@ -69,6 +116,11 @@ export async function login(
       data: { passwordHash: await hashPassword(password) },
     });
   }
+
+  // Cleared on success, so someone who mistyped twice is not left throttled.
+  // The address bucket is not cleared: it only ever counted failures, and one
+  // person's success says nothing about the others behind that address.
+  clearRateLimit(accountKey);
 
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);

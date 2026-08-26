@@ -8,6 +8,7 @@ import {
   requestContext,
   setSessionCookie,
 } from '@/server/auth/service';
+import { RateLimitedError } from '@/server/auth/rate-limit';
 import { loginSchema } from '@/server/validation/schemas';
 
 export interface LoginState {
@@ -28,7 +29,11 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     const { token, expiresAt } = await login(parsed.data.email, parsed.data.password, context);
     await setSessionCookie(token, expiresAt);
   } catch (err) {
-    if (err instanceof InvalidCredentialsError || err instanceof AccountDisabledError) {
+    if (
+      err instanceof InvalidCredentialsError ||
+      err instanceof AccountDisabledError ||
+      err instanceof RateLimitedError
+    ) {
       return { error: err.message };
     }
     console.error('[login] unexpected failure', err);

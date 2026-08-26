@@ -44,7 +44,16 @@ export default defineConfig({
   webServer: {
     command: `npm run start -- --port ${PORT}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    /**
+     * Always start a fresh server, never adopt a running one.
+     *
+     * Reuse cost three confusing debugging sessions here: a suite silently
+     * testing the previous build, two concurrent runs racing for the port, and
+     * login rate-limit counters carrying over between runs so tests that passed
+     * alone failed in sequence. Some seconds of startup is a cheap price for a
+     * run that means what it says.
+     */
+    reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'pipe',
     stderr: 'pipe',
