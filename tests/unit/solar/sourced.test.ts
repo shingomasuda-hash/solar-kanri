@@ -76,7 +76,7 @@ describe('assertProductionReady', () => {
     } catch (err) {
       expect(err).toBeInstanceOf(UnsourcedCoefficientError);
       const e = err as UnsourcedCoefficientError;
-      expect(e.fields.sort()).toEqual(['x', 'y.z']);
+      expect([...e.fields].sort()).toEqual(['x', 'y.z']);
       // The message has to tell an administrator what to actually do.
       expect(e.message).toContain('admin console');
       expect(e.message).toContain('x');

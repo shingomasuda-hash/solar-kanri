@@ -1,0 +1,729 @@
+// 太陽光営業統合プラットフォーム — data model
+//
+// Conventions (see CLAUDE.md "Database rules"):
+//  - Money is integer JPY. Never Float.
+//  - Physical quantities carry their unit in the field name.
+//  - Geometry is stored as WGS84 GeoJSON (Json), never local metres.
+//  - Simulations and quotations are immutable once issued; corrections version.
+//  - Customer and project records are soft-deleted.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- identity
+
+enum Role {
+  ADMIN // full access including masters, users and coefficients
+  MANAGER // all projects, no master data or user management
+  SALES // own projects only
+  VIEWER // read only
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         Role      @default(SALES)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  ownedCustomers Customer[] @relation("CustomerOwner")
+  ownedProjects  Project[]  @relation("ProjectOwner")
+  activities     Activity[]
+  assignedTasks  Task[]     @relation("TaskAssignee")
+  notes          Note[]
+  auditLogs      AuditLog[]
+  quotations     Quotation[]
+  simulations    Simulation[]
+  sessions       Session[]
+
+  @@index([role, isActive])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // SHA-256 of the session token. The token itself is never stored, so a
+  // database leak cannot be replayed as a login.
+  tokenHash String   @unique
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ------------------------------------------------------------------- CRM
+
+enum CustomerType {
+  INDIVIDUAL
+  CORPORATE
+}
+
+model Customer {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  type        CustomerType @default(INDIVIDUAL)
+  name        String
+  nameKana    String?
+  companyName String?
+  email       String?
+  phone       String?
+  postalCode  String?
+  prefecture  String?
+  city        String?
+  addressLine String?
+  notes       String?
+  source      String? // how the enquiry arrived
+  ownerId     String?
+  owner       User?        @relation("CustomerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  projects   Project[]
+  properties Property[]
+  activities Activity[]
+
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@index([name])
+}
+
+/// Sales pipeline stages. Editable by an administrator so the process can
+/// change without a code change (project brief rule 30).
+model SalesStatus {
+  id         String  @id @default(cuid())
+  key        String  @unique
+  label      String
+  sortOrder  Int
+  isWon      Boolean @default(false)
+  isLost     Boolean @default(false)
+  isActive   Boolean @default(true)
+  colorHex   String  @default("#64748b")
+
+  projects Project[]
+
+  @@index([sortOrder])
+}
+
+model Project {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  title         String
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  propertyId    String?
+  property      Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  statusId      String
+  status        SalesStatus  @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  ownerId       String?
+  owner         User?        @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  expectedCloseDate DateTime?
+  nextActionAt  DateTime?
+  nextActionNote String?
+  lostReason    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  activities  Activity[]
+  tasks       Task[]
+  notes       Note[]
+  files       FileAsset[]
+  simulations Simulation[]
+  quotations  Quotation[]
+
+  @@index([customerId])
+  @@index([statusId])
+  @@index([ownerId])
+  @@index([deletedAt])
+  @@index([nextActionAt])
+}
+
+// -------------------------------------------------------------- property
+
+enum PitchSource {
+  MEASURED
+  PROVIDER
+  ASSUMED
+  UNKNOWN
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label       String   @default("本邸")
+  postalCode  String?
+  prefecture  String?
+  city        String?
+  addressLine String?
+  /// Geocoded position. Cached so a revisit costs no Geocoding API call.
+  latitude    Float?
+  longitude   Float?
+  geocodedAt  DateTime?
+  /// Verbatim formatted address the Geocoding API returned, for audit.
+  geocodeFormattedAddress String?
+  mapZoom     Float?   @default(20)
+  /// Google Solar API building insight, mapped to our domain types. Optional.
+  solarInsight Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roofFaces RoofFace[]
+  projects  Project[]
+
+  @@index([customerId])
+}
+
+model RoofFace {
+  id         String      @id @default(cuid())
+  propertyId String
+  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label      String
+  /// WGS84 GeoJSON Polygon. The horizontal projection, as traced on imagery.
+  outline    Json
+  /// Tilt from horizontal, degrees. Null when pitchSource is UNKNOWN.
+  pitchDeg   Float?
+  /// Down-slope compass direction, degrees (0 = N, 90 = E, 180 = S).
+  azimuthDeg Float
+  pitchSource PitchSource @default(UNKNOWN)
+  /// Keep-out band inside the roof edge, metres.
+  setbackM   Float       @default(0.3)
+  /// Gap between neighbouring modules, metres.
+  panelGapM  Float       @default(0.02)
+  /// Horizontally-projected area, m². Derived; cached for listing views.
+  projectedAreaM2 Float?
+  /// True roof-surface area, m². Equals projected / cos(pitch).
+  surfaceAreaM2   Float?
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  exclusionZones ExclusionZone[]
+  layouts        Layout[]
+
+  @@index([propertyId])
+}
+
+enum ExclusionKind {
+  SKYLIGHT
+  CHIMNEY
+  AC_UNIT
+  EQUIPMENT
+  MAINTENANCE_AREA
+  OTHER
+}
+
+model ExclusionZone {
+  id          String        @id @default(cuid())
+  roofFaceId  String
+  roofFace    RoofFace      @relation(fields: [roofFaceId], references: [id], onDelete: Cascade)
+  kind        ExclusionKind @default(OTHER)
+  label       String?
+  /// WGS84 GeoJSON Polygon, horizontal projection.
+  outline     Json
+  /// Extra keep-out added around this zone, metres.
+  clearanceM  Float         @default(0.3)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([roofFaceId])
+}
+
+// -------------------------------------------------------- product masters
+
+model PanelModel {
+  id             String   @id @default(cuid())
+  manufacturer   String
+  model          String
+  widthMm        Int
+  heightMm       Int
+  thicknessMm    Int?
+  weightKg       Float?
+  ratedPowerW    Int
+  efficiencyPct  Float?
+  /// Pmax temperature coefficient, fraction per Kelvin. Negative.
+  /// Datasheets quote %/°C: -0.35 %/°C is stored as -0.0035.
+  pmaxTempCoeffPerK Float
+  vocV           Float?
+  iscA           Float?
+  vmpV           Float?
+  impA           Float?
+  /// NOCT or NMOT, °C.
+  noctC          Float?
+  /// Annual power degradation, fraction per year.
+  annualDegradation Float
+  productWarrantyYears     Int?
+  performanceWarrantyYears Int?
+  datasheetUrl     String?
+  datasheetVersion String?
+  /// Where these figures came from. Required — see CLAUDE.md calculation rules.
+  sourceCitation String
+  sourceUrl      String?
+  effectiveDate  DateTime?
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  layouts Layout[]
+
+  @@unique([manufacturer, model, datasheetVersion])
+  @@index([isActive])
+}
+
+model InverterModel {
+  id                String   @id @default(cuid())
+  manufacturer      String
+  model             String
+  ratedOutputW      Int
+  maxInputW         Int?
+  /// Peak conversion efficiency as a multiplier, e.g. 0.965.
+  peakEfficiency    Float
+  /// JIS/Euro weighted efficiency as a multiplier, if published.
+  weightedEfficiency Float?
+  mpptCount         Int?
+  datasheetUrl      String?
+  datasheetVersion  String?
+  sourceCitation    String
+  sourceUrl         String?
+  effectiveDate     DateTime?
+  verifiedAt        DateTime?
+  verifiedBy        String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  simulations Simulation[]
+
+  @@unique([manufacturer, model, datasheetVersion])
+  @@index([isActive])
+}
+
+// ----------------------------------------------- coefficients and tariffs
+
+/// One administrator-managed numeric coefficient with its provenance.
+/// `sourceKind = UNVERIFIED_PLACEHOLDER` makes the engines refuse to run.
+enum SourceKind {
+  MANUFACTURER_DATASHEET
+  OFFICIAL_STANDARD
+  PUBLIC_DATASET
+  PROVIDER_API
+  ADMINISTRATOR_INPUT
+  UNVERIFIED_PLACEHOLDER
+}
+
+model CoefficientSet {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values      Coefficient[]
+  simulations Simulation[]
+}
+
+model Coefficient {
+  id             String         @id @default(cuid())
+  setId          String
+  set            CoefficientSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+  /// Stable identifier, e.g. "inverterEfficiency", "temperatureRiseK.roof-flush".
+  key            String
+  label          String
+  value          Float
+  unit           String?
+  sourceKind     SourceKind     @default(UNVERIFIED_PLACEHOLDER)
+  sourceCitation String
+  sourceUrl      String?
+  effectiveDate  DateTime?
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  note           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([setId, key])
+}
+
+model Tariff {
+  id                        String   @id @default(cuid())
+  key                       String   @unique
+  name                      String
+  purchasePriceJpyPerKWh    Float
+  exportPriceJpyPerKWh      Float
+  exportPriceYears          Int
+  postExportPriceJpyPerKWh  Float
+  annualPriceEscalation     Float
+  monthlyBasicChargeJpy     Int
+  defaultSelfConsumptionRatio Float
+  sourceKind                SourceKind @default(UNVERIFIED_PLACEHOLDER)
+  sourceCitation            String
+  sourceUrl                 String?
+  effectiveDate             DateTime?
+  verifiedAt                DateTime?
+  verifiedBy                String?
+  isDefault                 Boolean  @default(false)
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  simulations Simulation[]
+}
+
+/// Administrator-entered monthly irradiance table (e.g. transcribed NEDO METPV).
+model IrradianceStation {
+  id             String   @id @default(cuid())
+  label          String
+  latitude       Float
+  longitude      Float
+  /// { "1": 3.2, ... "12": 3.0 } kWh/m²/day.
+  monthlyIrradiationKWhPerM2PerDay Json
+  /// { "1": 6, ... "12": 9 } °C.
+  monthlyAmbientTempC Json
+  /// True when the figures are already plane-of-array for a stated tilt/azimuth.
+  isPlaneOfArray Boolean  @default(false)
+  tiltDeg        Float?
+  azimuthDeg     Float?
+  sourceKind     SourceKind @default(UNVERIFIED_PLACEHOLDER)
+  sourceCitation String
+  sourceUrl      String?
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([latitude, longitude])
+}
+
+// ------------------------------------------------------ layout and results
+
+enum MountingType {
+  ROOF_FLUSH
+  ROOF_RAISED
+  GROUND_MOUNTED
+}
+
+model Layout {
+  id           String     @id @default(cuid())
+  roofFaceId   String
+  roofFace     RoofFace   @relation(fields: [roofFaceId], references: [id], onDelete: Cascade)
+  panelModelId String
+  panelModel   PanelModel @relation(fields: [panelModelId], references: [id], onDelete: Restrict)
+  /// "layout-engine-v1"
+  algorithmVersion String
+  /// Placements in roof-plane metres, plus the frame needed to project them back.
+  placements   Json
+  panelCount   Int
+  installedW   Int
+  orientation  String?
+  angleDeg     Float      @default(0)
+  usableAreaM2 Float
+  /// True when a human has edited the automatic result.
+  isManuallyEdited Boolean @default(false)
+  /// Search statistics and any warnings, kept for audit.
+  engineMeta   Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  simulationLayouts SimulationLayout[]
+
+  @@index([roofFaceId])
+}
+
+model Simulation {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version   Int
+  label     String?
+
+  mounting          MountingType   @default(ROOF_FLUSH)
+  inverterModelId   String?
+  inverterModel     InverterModel? @relation(fields: [inverterModelId], references: [id], onDelete: SetNull)
+  coefficientSetId  String
+  coefficientSet    CoefficientSet @relation(fields: [coefficientSetId], references: [id], onDelete: Restrict)
+  tariffId          String
+  tariff            Tariff         @relation(fields: [tariffId], references: [id], onDelete: Restrict)
+
+  installedW              Int
+  panelCount              Int
+  annualGenerationKWh     Float
+  specificYieldKWhPerKw   Float
+  performanceRatio        Float
+  annualCo2AvoidedKg      Float
+  firstYearBenefitJpy     Int
+  lifetimeNetJpy          Int
+  paybackYears            Float?
+  npvJpy                  Int
+  irr                     Float?
+
+  /// Engine versions, so a result is always attributable to a known model.
+  solarEngineVersion     String
+  economicsEngineVersion String
+  layoutEngineVersion    String
+
+  /// Complete input snapshot: module, coefficients, tariff, irradiance,
+  /// consumption and cost, exactly as used. This is what makes a saved
+  /// simulation reproducible after the masters have moved on.
+  inputSnapshot   Json
+  /// Full engine output: monthly yields, yearly cashflows, breakdown, warnings.
+  resultSnapshot  Json
+  warnings        Json?
+
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  layouts    SimulationLayout[]
+  quotations Quotation[]
+
+  @@unique([projectId, version])
+  @@index([projectId])
+}
+
+/// Join table: a simulation can cover several roof faces.
+model SimulationLayout {
+  simulationId String
+  simulation   Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+  layoutId     String
+  layout       Layout     @relation(fields: [layoutId], references: [id], onDelete: Restrict)
+
+  @@id([simulationId, layoutId])
+}
+
+// ------------------------------------------------------------- quotation
+
+enum QuotationStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Quotation {
+  id           String          @id @default(cuid())
+  projectId    String
+  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  simulationId String?
+  simulation   Simulation?     @relation(fields: [simulationId], references: [id], onDelete: SetNull)
+  version      Int
+  status       QuotationStatus @default(DRAFT)
+  title        String
+  validUntil   DateTime?
+  /// All money in integer JPY.
+  subtotalJpy  Int             @default(0)
+  discountJpy  Int             @default(0)
+  subsidyJpy   Int             @default(0)
+  taxRate      Float           @default(0.1)
+  taxJpy       Int             @default(0)
+  totalJpy     Int             @default(0)
+  notes        String?
+  /// Frozen copy of the simulation figures shown on the document, so a later
+  /// re-simulation cannot change an issued quotation.
+  simulationSnapshot Json?
+  issuedAt     DateTime?
+  createdById  String?
+  createdBy    User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  items QuotationItem[]
+
+  @@unique([projectId, version])
+  @@index([projectId])
+}
+
+enum QuotationCategory {
+  PANEL
+  INVERTER
+  MOUNTING
+  CONSTRUCTION
+  ELECTRICAL
+  BATTERY
+  OTHER
+}
+
+model QuotationItem {
+  id          String            @id @default(cuid())
+  quotationId String
+  quotation   Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  category    QuotationCategory
+  name        String
+  description String?
+  quantity    Float             @default(1)
+  unit        String            @default("式")
+  unitPriceJpy Int
+  amountJpy   Int
+  sortOrder   Int               @default(0)
+
+  @@index([quotationId])
+}
+
+// -------------------------------------------------- activities and tasks
+
+enum ActivityKind {
+  CALL
+  EMAIL
+  MEETING
+  SITE_VISIT
+  PROPOSAL
+  CONTRACT
+  CONSTRUCTION
+  OTHER
+}
+
+model Activity {
+  id         String       @id @default(cuid())
+  projectId  String?
+  project    Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer?    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  kind       ActivityKind @default(OTHER)
+  subject    String
+  body       String?
+  occurredAt DateTime     @default(now())
+  userId     String?
+  user       User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime     @default(now())
+
+  @@index([projectId, occurredAt])
+  @@index([customerId, occurredAt])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  dueAt       DateTime?
+  completedAt DateTime?
+  assigneeId  String?
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([assigneeId, completedAt])
+  @@index([dueAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  body      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model FileAsset {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  filename     String
+  contentType  String
+  sizeBytes    Int
+  storageKey   String
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  @@index([projectId])
+}
+
+// -------------------------------------------------------- knowledge base
+
+enum KnowledgeKind {
+  MANUFACTURER_DOC
+  DATASHEET
+  WARRANTY
+  FAQ
+  SUBSIDY
+  SALES_MATERIAL
+  CASE_STUDY
+  COMPETITOR
+  MANUAL
+}
+
+/// Retrieved by the AI Copilot. Content is UNTRUSTED: instructions inside a
+/// document are data, never commands (see ADR-006).
+model KnowledgeDocument {
+  id        String        @id @default(cuid())
+  kind      KnowledgeKind @default(MANUAL)
+  title     String
+  body      String
+  tags      String[]      @default([])
+  sourceUrl String?
+  sourceCitation String?
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([kind, isActive])
+}
+
+// ------------------------------------------------------------ operations
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String?
+  /// Before/after for mutations. Never contains secrets.
+  detail     Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  label     String
+  updatedAt DateTime @updatedAt
+}
+
+/// One recorded health probe, so the admin console can show trend and recency
+/// rather than only a live check.
+model HealthCheck {
+  id         String   @id @default(cuid())
+  component  String
+  isHealthy  Boolean
+  latencyMs  Int?
+  message    String?
+  checkedAt  DateTime @default(now())
+
+  @@index([component, checkedAt])
+}

@@ -95,7 +95,6 @@ function haversineKm(
   const dLng = ((b.longitude - a.longitude) * Math.PI) / 180;
   const la1 = (a.latitude * Math.PI) / 180;
   const la2 = (b.latitude * Math.PI) / 180;
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }

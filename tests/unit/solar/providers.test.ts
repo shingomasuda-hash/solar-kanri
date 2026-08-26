@@ -105,7 +105,7 @@ describe('PVGIS response mapping', () => {
 
 describe('PvgisProvider transport', () => {
   it('builds the documented URL', async () => {
-    const fetchImpl = vi.fn(async () =>
+    const fetchImpl = vi.fn(async (_url: string) =>
       new Response(
         JSON.stringify({
           outputs: { monthly: MONTHS.map((m) => ({ month: m, 'H(i)_m': 120, T2m: 15 })) },
@@ -115,7 +115,7 @@ describe('PvgisProvider transport', () => {
     );
     const p = new PvgisProvider({ fetchImpl: fetchImpl as unknown as typeof fetch });
     await p.fetch(QUERY);
-    const url = new URL(fetchImpl.mock.calls[0]![0] as string);
+    const url = new URL(fetchImpl.mock.calls[0]![0]);
     expect(url.pathname).toContain('/MRcalc');
     expect(url.searchParams.get('lat')).toBe('35.6812');
     expect(url.searchParams.get('angle')).toBe('30');

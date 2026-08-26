@@ -60,7 +60,9 @@ export class GoogleSolarProvider {
    * "Google does not model this building" case — that is a normal outcome and
    * the operator simply draws the roof by hand.
    */
-  async lookup(query: Pick<SolarQuery, 'latitude' | 'longitude'>): Promise<GoogleSolarLookupResult> {
+  async lookup(
+    query: Pick<SolarQuery, 'latitude' | 'longitude'>,
+  ): Promise<GoogleSolarLookupResult> {
     if (!this.options.apiKey) {
       return { status: 'unavailable', reason: 'GOOGLE_SOLAR_API_KEY is not configured' };
     }

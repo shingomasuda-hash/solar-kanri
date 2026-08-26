@@ -94,8 +94,7 @@ export function simulateGeneration(input: SimulationInput): SimulationResult {
   const overallDesignFactorK = idealKWh > 0 ? annualGenerationKWh / idealKWh : 0;
 
   // Irradiation-weighted mean, so the reported factor reconstructs the total.
-  const meanTemperatureFactor =
-    systemFactor > 0 ? overallDesignFactorK / systemFactor : 0;
+  const meanTemperatureFactor = systemFactor > 0 ? overallDesignFactorK / systemFactor : 0;
 
   const degradation = input.module.annualDegradation.value;
   const yearlyGenerationKWh: number[] = [];
@@ -119,13 +118,11 @@ export function simulateGeneration(input: SimulationInput): SimulationResult {
     installedKw: input.installedKw,
     monthly,
     annualGenerationKWh,
-    specificYieldKWhPerKw:
-      input.installedKw > 0 ? annualGenerationKWh / input.installedKw : 0,
+    specificYieldKWhPerKw: input.installedKw > 0 ? annualGenerationKWh / input.installedKw : 0,
     performanceRatio: overallDesignFactorK,
     yearlyGenerationKWh,
     lifetimeGenerationKWh: yearlyGenerationKWh.reduce((a, b) => a + b, 0),
-    annualCo2AvoidedKg:
-      annualGenerationKWh * input.coefficients.gridCo2FactorKgPerKWh.value,
+    annualCo2AvoidedKg: annualGenerationKWh * input.coefficients.gridCo2FactorKgPerKWh.value,
     breakdown,
     warnings,
   };
@@ -150,9 +147,7 @@ function validate(input: SimulationInput): void {
     throw new RangeError(`installedKw must be >= 0, got ${input.installedKw}`);
   }
   if (!Number.isInteger(input.projectionYears) || input.projectionYears < 1) {
-    throw new RangeError(
-      `projectionYears must be an integer >= 1, got ${input.projectionYears}`,
-    );
+    throw new RangeError(`projectionYears must be an integer >= 1, got ${input.projectionYears}`);
   }
   const gamma = input.module.pmaxTempCoeffPerK.value;
   if (gamma > 0) {
@@ -193,9 +188,7 @@ function validate(input: SimulationInput): void {
 }
 
 /** Sum of the monthly daily-mean irradiation, expressed as kWh/m2/day (HA). */
-export function annualMeanDailyIrradiation(
-  perDay: Readonly<Record<Month, number>>,
-): number {
+export function annualMeanDailyIrradiation(perDay: Readonly<Record<Month, number>>): number {
   let total = 0;
   for (const m of MONTHS) total += perDay[m] * DAYS_IN_MONTH[m];
   return total / 365;
