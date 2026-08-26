@@ -1,0 +1,306 @@
+/*
+ * Quotation document styles.
+ *
+ * Deliberately plain CSS rather than utility classes: this file is a document
+ * stylesheet that a non-engineer may reasonably need to adjust for house style,
+ * and @page rules have no utility-class equivalent.
+ */
+
+.print-document {
+  --ink: #111;
+  --rule: #999;
+  --muted: #555;
+  color: var(--ink);
+  background: #fff;
+  padding: 1rem;
+}
+
+.print-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  background: #f8fafc;
+}
+
+.print-sheet {
+  max-width: 190mm;
+  margin: 0 auto;
+  padding: 12mm;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 10.5pt;
+  line-height: 1.6;
+}
+
+/*
+ * On a phone the paper-sized padding alone overflows the viewport. The 12mm
+ * margins are a print concern, so they are relaxed on small screens; @media
+ * print below restores the real page geometry.
+ */
+@media screen and (max-width: 640px) {
+  .print-document {
+    padding: 0.5rem;
+  }
+
+  .print-sheet {
+    padding: 1rem;
+  }
+
+  .print-header,
+  .print-parties {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .print-supplier {
+    text-align: left;
+    white-space: normal;
+  }
+
+  .print-meta > div {
+    justify-content: flex-start;
+  }
+
+  /* The line-item table keeps its own scroll rather than widening the page. */
+  .print-items {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .print-simulation dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.print-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 8mm;
+}
+
+.print-header h1 {
+  font-size: 20pt;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 2mm;
+}
+
+.print-meta {
+  font-size: 9pt;
+  color: var(--muted);
+}
+.print-meta > div {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+.print-meta dt::after {
+  content: '：';
+}
+
+.print-parties {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 6mm;
+}
+
+.print-customer-name {
+  font-size: 13pt;
+  font-weight: 600;
+  border-bottom: 1px solid var(--ink);
+  padding-bottom: 1mm;
+  margin-bottom: 2mm;
+}
+.print-honorific {
+  font-weight: 400;
+}
+.print-address,
+.print-subject {
+  font-size: 9.5pt;
+  color: var(--muted);
+}
+.print-subject {
+  margin-top: 2mm;
+  color: var(--ink);
+}
+
+.print-supplier {
+  text-align: right;
+  font-size: 9.5pt;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.print-company {
+  font-size: 11pt;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.print-total-banner {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 3mm 5mm;
+  margin-bottom: 6mm;
+  border: 2px solid var(--ink);
+  font-size: 11pt;
+}
+.print-total-banner strong {
+  font-size: 18pt;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-items {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 6mm;
+  font-size: 9.5pt;
+}
+.print-items th,
+.print-items td {
+  border: 1px solid var(--rule);
+  padding: 2mm 3mm;
+  text-align: left;
+  vertical-align: top;
+}
+.print-items thead th {
+  background: #f1f5f9;
+  font-weight: 600;
+  font-size: 9pt;
+}
+.print-items .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.print-items tfoot th {
+  text-align: right;
+  background: #f8fafc;
+}
+.print-item-note {
+  font-size: 8.5pt;
+  color: var(--muted);
+}
+.print-grand-total th,
+.print-grand-total td {
+  font-weight: 700;
+  background: #f1f5f9;
+}
+
+.print-simulation {
+  margin-bottom: 6mm;
+  padding: 4mm;
+  border: 1px solid var(--rule);
+}
+.print-simulation h2 {
+  font-size: 11pt;
+  font-weight: 600;
+  margin-bottom: 3mm;
+}
+.print-simulation dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1mm 6mm;
+  font-size: 9.5pt;
+}
+.print-simulation dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px dotted #cbd5e1;
+  padding-bottom: 1mm;
+}
+.print-simulation dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.print-disclaimer {
+  margin-top: 3mm;
+  font-size: 8pt;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.print-notes {
+  margin-bottom: 6mm;
+}
+.print-notes h2 {
+  font-size: 11pt;
+  font-weight: 600;
+  margin-bottom: 2mm;
+}
+.print-notes p {
+  white-space: pre-wrap;
+  font-size: 9.5pt;
+}
+
+.print-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 2mm;
+  font-size: 8pt;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ print */
+
+@page {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+@media print {
+  /* The app shell is not part of the document. */
+  header,
+  nav,
+  .print-toolbar {
+    display: none !important;
+  }
+
+  .print-document {
+    padding: 0;
+  }
+
+  .print-sheet {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  /* A line item must never be split across a page boundary. */
+  .print-items tr {
+    break-inside: avoid;
+  }
+
+  .print-simulation,
+  .print-total-banner {
+    break-inside: avoid;
+  }
+
+  /* Keep the summary with the table it summarises where possible. */
+  .print-items tfoot {
+    break-before: avoid;
+  }
+
+  /* Backgrounds are meaningful here (header rows, totals), so keep them. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

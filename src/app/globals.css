@@ -7,8 +7,8 @@
   --color-brand-600: oklch(0.52 0.17 250);
   --color-brand-700: oklch(0.45 0.16 250);
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
-    Meiryo, sans-serif;
+    ui-sans-serif, system-ui, -apple-system, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo,
+    sans-serif;
 }
 
 :root {

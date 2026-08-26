@@ -41,7 +41,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       />
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="flex flex-col gap-5 lg:col-span-2">
+        <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
           <Card>
             <CardTitle>案件</CardTitle>
             {customer.projects.length === 0 ? (
@@ -99,7 +99,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
           </Card>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           <Card>
             <CardTitle>基本情報</CardTitle>
             <dl className="flex flex-col gap-3 text-sm">

@@ -93,7 +93,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="flex flex-col gap-5 lg:col-span-2">
+        <div className="flex min-w-0 flex-col gap-5 lg:col-span-2">
           {roofCount === 0 && (
             <Alert tone="info" title="次のステップ">
               屋根がまだ登録されていません。
@@ -130,7 +130,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           />
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           <Card>
             <CardTitle>ステータス</CardTitle>
             <div className="mb-3">

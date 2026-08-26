@@ -181,7 +181,7 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
       {/* ------------------------------------------------ map column */}
-      <div className="flex flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-5">
         <Card>
           <CardTitle>1. 住所から位置を確定</CardTitle>
           {!props.geocodingConfigured && (
@@ -293,7 +293,7 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
       </div>
 
       {/* --------------------------------------------- controls column */}
-      <div className="flex flex-col gap-5">
+      <div className="flex min-w-0 flex-col gap-5">
         {canWrite && (
           <Card>
             <CardTitle>3. 屋根面を登録</CardTitle>

@@ -18,6 +18,10 @@ export function Card({
       className={clsx(
         'rounded-lg border bg-[var(--surface)] p-5 shadow-sm',
         'border-[var(--border)]',
+        // Cards live in grid/flex columns, whose default min-width:auto lets a
+        // wide child (a min-w table) push the whole column out and scroll the
+        // page sideways. See CLAUDE.md: the body must never scroll horizontally.
+        'min-w-0',
         className,
       )}
     >
@@ -68,10 +72,15 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
 export function Button({
   variant = 'primary',
   className,
+  type = 'button',
   ...rest
 }: { variant?: ButtonVariant } & ComponentProps<'button'>) {
   return (
+    // Defaults to type="button". HTML's default is "submit", so a plain button
+    // inside a form — "add a row", "toggle a panel" — silently submits it.
+    // Submitting is always opt-in here via an explicit type="submit".
     <button
+      type={type}
       {...rest}
       className={clsx(
         'inline-flex items-center justify-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium',
