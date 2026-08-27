@@ -26,12 +26,14 @@ import {
   deleteExclusionAction,
   deleteRoofFaceAction,
   geocodeAction,
+  estimateRoofAction,
   runSimulationAction,
   saveExclusionAction,
   saveRoofFaceAction,
   setPositionAction,
   type FormState,
   type LayoutState,
+  type RoofEstimateState,
   type SimulationState,
 } from './actions';
 
@@ -154,6 +156,22 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
   );
   const [layoutState, computeLayout] = useActionState(computeLayoutAction, {} as LayoutState);
   const [simState, runSim] = useActionState(runSimulationAction, {} as SimulationState);
+  const [estimateState, estimateRoof] = useActionState(estimateRoofAction, {} as RoofEstimateState);
+
+  // Pitch and orientation are controlled, so a satellite estimate can fill them
+  // and record where the number came from. `pitchSource` is what the rest of
+  // the system reads to decide whether a figure may be presented as measured;
+  // it must never say PROVIDER for a value a person picked off a list.
+  const [pitchDeg, setPitchDeg] = useState('');
+  const [azimuthDeg, setAzimuthDeg] = useState('180');
+  const [pitchSource, setPitchSource] = useState<'ASSUMED' | 'PROVIDER' | 'UNKNOWN'>('ASSUMED');
+  const estimated = pitchSource === 'PROVIDER' ? { pitchDeg, azimuthDeg } : null;
+
+  const applyEstimate = (segment: { pitchDeg: number; azimuthDeg: number }) => {
+    setPitchDeg(String(segment.pitchDeg));
+    setAzimuthDeg(String(segment.azimuthDeg));
+    setPitchSource('PROVIDER');
+  };
 
   const selectedFace = roofFaces.find((f) => f.id === selectedFaceId) ?? roofFaces[0] ?? null;
 
@@ -248,6 +266,85 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
           )}
         </Card>
 
+        {canWrite && props.position && (
+          <Card>
+            <CardTitle
+              action={
+                <form action={estimateRoof}>
+                  <input type="hidden" name="propertyId" value={propertyId} />
+                  <input type="hidden" name="refresh" value="true" />
+                  <Button type="submit" variant="ghost" className="text-xs">
+                    再取得
+                  </Button>
+                </form>
+              }
+            >
+              衛星から屋根勾配を推定（任意）
+            </CardTitle>
+
+            <form action={estimateRoof} className="flex flex-wrap items-center gap-3">
+              <input type="hidden" name="propertyId" value={propertyId} />
+              <Submitting label="衛星写真から推定" busy="問い合わせ中…" />
+              <p className="text-xs text-[var(--text-muted)]">
+                Google Solar API に問い合わせ、勾配と向きを推定します。外周の作図は手動のままです。
+              </p>
+            </form>
+
+            {estimateState.error && (
+              <div className="mt-3">
+                <Alert tone="warning" title="推定できませんでした">
+                  {estimateState.error}
+                </Alert>
+              </div>
+            )}
+
+            {estimateState.result && (
+              <div className="mt-3" data-testid="roof-estimate">
+                {estimateState.result.status !== 'ok' ? (
+                  <Alert tone="info" title="この建物のデータがありません">
+                    Google
+                    はこの建物をモデル化していません。屋根を手で作図し、勾配を選択してください。
+                    精度は変わりません。
+                  </Alert>
+                ) : (
+                  <>
+                    <p className="mb-2 text-xs text-[var(--text-muted)]">
+                      {estimateState.result.segments.length} 面を検出
+                      {estimateState.result.imageryDate &&
+                        ` ・ 撮影 ${estimateState.result.imageryDate}`}
+                      {estimateState.result.imageryQuality &&
+                        ` ・ 画質 ${estimateState.result.imageryQuality}`}
+                      {estimateState.result.cached && ' ・ 保存済みの結果'}
+                    </p>
+                    <ul className="flex flex-col gap-2">
+                      {estimateState.result.segments.map((seg, i) => (
+                        <li
+                          key={`${seg.pitchDeg}-${seg.azimuthDeg}-${i}`}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-3 py-2 text-sm"
+                        >
+                          <span className="tabular-nums">
+                            勾配 {seg.pitchDeg}° ・ 向き {seg.azimuthDeg}° ・ 面積 {seg.areaM2} m²
+                          </span>
+                          <Button
+                            variant="secondary"
+                            className="text-xs"
+                            onClick={() => applyEstimate(seg)}
+                          >
+                            この値を使う
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      面積は作図した外周と突き合わせる目安に使えます。大きく食い違う場合は作図を見直してください。
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
+
         <Card>
           <CardTitle
             action={
@@ -331,7 +428,20 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                 htmlFor="pitchDeg"
                 hint="不明の場合は水平面として計算し、結果にその旨を表示します。"
               >
-                <Select id="pitchDeg" name="pitchDeg" defaultValue="">
+                <Select
+                  id="pitchDeg"
+                  name="pitchDeg"
+                  value={pitchDeg}
+                  onChange={(e) => {
+                    setPitchDeg(e.target.value);
+                    // Picking from the list is a person's assumption, not a
+                    // measurement — the provenance has to fall back with it.
+                    setPitchSource(e.target.value === '' ? 'UNKNOWN' : 'ASSUMED');
+                  }}
+                >
+                  {estimated && (
+                    <option value={estimated.pitchDeg}>衛星推定（{estimated.pitchDeg}°）</option>
+                  )}
                   {PITCH_PRESETS.map((p) => (
                     <option key={p.label} value={p.deg}>
                       {p.label}
@@ -339,9 +449,19 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                   ))}
                 </Select>
               </Field>
-              <input type="hidden" name="pitchSource" value="ASSUMED" />
+              <input type="hidden" name="pitchSource" value={pitchSource} />
               <Field label="屋根の向き（軒先方向）" htmlFor="azimuthDeg" required>
-                <Select id="azimuthDeg" name="azimuthDeg" defaultValue="180">
+                <Select
+                  id="azimuthDeg"
+                  name="azimuthDeg"
+                  value={azimuthDeg}
+                  onChange={(e) => setAzimuthDeg(e.target.value)}
+                >
+                  {estimated && !AZIMUTHS.some((a) => String(a.value) === estimated.azimuthDeg) && (
+                    <option value={estimated.azimuthDeg}>
+                      衛星推定（{estimated.azimuthDeg}°）
+                    </option>
+                  )}
                   {AZIMUTHS.map((a) => (
                     <option key={a.value} value={a.value}>
                       {a.label}
@@ -349,6 +469,11 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                   ))}
                 </Select>
               </Field>
+              {pitchSource === 'PROVIDER' && (
+                <p className="text-xs text-[var(--text-muted)]" data-testid="pitch-from-satellite">
+                  勾配・向きは衛星写真からの推定値です。現地で確認できる場合は実測値に置き換えてください。
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <Field label="離隔距離 (m)" htmlFor="setbackM">
                   <Input id="setbackM" name="setbackM" inputMode="decimal" defaultValue="0.3" />

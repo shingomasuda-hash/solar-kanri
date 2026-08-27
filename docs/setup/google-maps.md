@@ -112,3 +112,36 @@ in Maps JavaScript API v3.65 — unavailable since May 2026. This project uses
 **Terra Draw**, Google's own recommended replacement (see
 `docs/adr/ADR-002-map-provider.md`). Do not reintroduce a dependency on the
 drawing library.
+
+---
+
+## Roof pitch from satellite imagery
+
+The design screen has an optional **衛星から屋根勾配を推定** step. It calls the
+Solar API's `buildingInsights` endpoint and offers each detected roof face's
+pitch, orientation and area; one click fills the roof form.
+
+Three things to know before relying on it.
+
+**It does not draw the outline.** Google returns a segment's centre and
+bounding box, not its boundary. The tracing stays manual — the estimate saves
+you the pitch, which is otherwise a trip onto the roof.
+
+**Not every building is modelled.** Coverage is good in dense urban Japan and
+thin elsewhere. An unmodelled building is a normal outcome, reported as such,
+and nothing downstream changes: the operator states the pitch and the result is
+exactly as accurate.
+
+**An applied estimate is recorded as `PROVIDER`, not `MEASURED`.** That
+provenance travels with the roof face, so a figure derived from satellite
+imagery is never presented as a site measurement. Picking a pitch from the
+preset list afterwards drops it back to `ASSUMED` — the provenance follows the
+number, not the field.
+
+Billing: charged per request. The result is stored on the property, so
+revisiting the same building costs nothing; moving the pin more than 15 m
+invalidates it, because it is then a different building.
+
+Set `GOOGLE_SOLAR_API_KEY`, or leave it empty and the step will say it is
+unconfigured. It falls back to `GOOGLE_GEOCODING_API_KEY` if that key has the
+Solar API enabled.

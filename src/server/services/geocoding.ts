@@ -59,9 +59,13 @@ export async function geocodeAddress(
   const hit = cache.get(key);
   if (hit && hit.expiresAt > now) return hit.results;
 
+  // `||` rather than `??` throughout: a variable registered with an empty
+  // value is not a key. With `??` an empty GOOGLE_GEOCODING_API_KEY would
+  // shadow a perfectly good browser key and report "not configured" — which is
+  // exactly what a dashboard populated from .env.example produces.
   const apiKey =
-    options.apiKey ??
-    process.env.GOOGLE_GEOCODING_API_KEY ??
+    options.apiKey ||
+    process.env.GOOGLE_GEOCODING_API_KEY ||
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!apiKey) throw new GeocodingNotConfiguredError();
 
@@ -126,6 +130,6 @@ export function parseGeocodeResponse(payload: unknown): GeocodeResult[] {
 /** True when a key is configured, so the UI can show setup guidance instead of an error. */
 export function isGeocodingConfigured(): boolean {
   return Boolean(
-    process.env.GOOGLE_GEOCODING_API_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    process.env.GOOGLE_GEOCODING_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   );
 }

@@ -13,6 +13,10 @@ import {
   saveRoofFace,
 } from '@/server/services/design';
 import { runSimulation, SimulationBlockedError } from '@/server/services/simulation';
+import {
+  estimateRoofFromSatellite,
+  type RoofEstimateResult,
+} from '@/server/services/solar-insight';
 import { geocodeAddress, GeocodingNotConfiguredError } from '@/server/services/geocoding';
 import { recordAudit } from '@/server/services/audit';
 
@@ -277,6 +281,26 @@ export async function runSimulationAction(
     if (err instanceof SimulationBlockedError) {
       return { error: err.message, blockedFields: [...err.missing] };
     }
+    return toFormState(err);
+  }
+}
+
+export interface RoofEstimateState extends FormState {
+  readonly result?: RoofEstimateResult;
+}
+
+export async function estimateRoofAction(
+  _prev: RoofEstimateState,
+  formData: FormData,
+): Promise<RoofEstimateState> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) throw new UnauthenticatedError();
+    const result = await estimateRoofFromSatellite(user, String(formData.get('propertyId') ?? ''), {
+      refresh: formData.get('refresh') === 'true',
+    });
+    return { result };
+  } catch (err) {
     return toFormState(err);
   }
 }
