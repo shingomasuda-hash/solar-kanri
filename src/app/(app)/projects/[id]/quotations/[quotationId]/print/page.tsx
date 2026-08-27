@@ -82,6 +82,12 @@ export default async function QuotationPrintPage({
       </div>
 
       <article className="print-sheet">
+        {quotation.simulation?.isDemo && (
+          <p className="print-demo-banner" data-testid="print-demo-banner">
+            参考値（デモ用データ）— この書面はお客様に提示できません。
+            記載の発電量・経済効果はデモ用の概算係数から算出したものです。
+          </p>
+        )}
         <header className="print-header">
           <h1>御見積書</h1>
           <dl className="print-meta">

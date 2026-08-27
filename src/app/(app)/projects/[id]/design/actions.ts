@@ -245,6 +245,8 @@ export async function setPositionAction(_prev: FormState, formData: FormData): P
 export interface SimulationState extends FormState {
   readonly simulationId?: string;
   readonly blockedFields?: string[];
+  readonly isDemo?: boolean;
+  readonly demoFields?: string[];
 }
 
 export async function runSimulationAction(
@@ -266,7 +268,11 @@ export async function runSimulationAction(
     });
     revalidatePath(`/projects/${projectId}`);
     revalidatePath(`/projects/${projectId}/design`);
-    return { simulationId: simulation.id };
+    return {
+      simulationId: simulation.id,
+      isDemo: simulation.isDemo,
+      demoFields: Array.isArray(simulation.demoFields) ? (simulation.demoFields as string[]) : [],
+    };
   } catch (err) {
     if (err instanceof SimulationBlockedError) {
       return { error: err.message, blockedFields: [...err.missing] };

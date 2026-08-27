@@ -7,6 +7,7 @@ import {
   ManualSolarProvider,
   PvgisProvider,
   UnsourcedCoefficientError,
+  findDemo,
   resolveIrradiance,
   simulateGeneration,
   sourced,
@@ -66,6 +67,7 @@ const SOURCE_KIND_MAP: Record<DbSourceKind, SourceKind> = {
   PUBLIC_DATASET: 'public-dataset',
   PROVIDER_API: 'provider-api',
   ADMINISTRATOR_INPUT: 'administrator-input',
+  DEMO_APPROXIMATION: 'demo-approximation',
   UNVERIFIED_PLACEHOLDER: 'unverified-placeholder',
 };
 
@@ -139,7 +141,11 @@ export async function runSimulation(user: SessionUser, request: SimulationReques
   // coefficient — otherwise a temperature coefficient nobody verified would
   // reach a customer-facing figure.
   const panelSource = {
-    kind: (panel.verifiedAt ? 'manufacturer-datasheet' : 'unverified-placeholder') as SourceKind,
+    kind: (panel.isDemo
+      ? 'demo-approximation'
+      : panel.verifiedAt
+        ? 'manufacturer-datasheet'
+        : 'unverified-placeholder') as SourceKind,
     citation: panel.sourceCitation,
     url: panel.sourceUrl ?? undefined,
     effectiveDate: panel.effectiveDate?.toISOString(),
@@ -250,6 +256,15 @@ export async function runSimulation(user: SessionUser, request: SimulationReques
     throw err;
   }
 
+  // Which inputs were demonstration figures. Collected from the same objects
+  // the engines were given, so this cannot drift from what was actually used.
+  const demoFields = findDemo({
+    module: moduleSpec,
+    coefficients,
+    tariff: tariffSet,
+    irradiance: irradiance.source,
+  });
+
   const lastVersion = await prisma.simulation.findFirst({
     where: { projectId: request.projectId },
     orderBy: { version: 'desc' },
@@ -299,6 +314,8 @@ export async function runSimulation(user: SessionUser, request: SimulationReques
       } as never,
       resultSnapshot: { generation, economics } as never,
       warnings: [...generation.warnings, ...economics.warnings] as never,
+      isDemo: demoFields.length > 0,
+      demoFields: demoFields as never,
       createdById: user.id,
       layouts: { create: layouts.map((l) => ({ layoutId: l.id })) },
     },

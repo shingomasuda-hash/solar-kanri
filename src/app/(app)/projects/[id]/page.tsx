@@ -9,6 +9,7 @@ import {
   Badge,
   Card,
   CardTitle,
+  DemoFiguresNotice,
   EmptyState,
   LinkButton,
   PageHeader,
@@ -201,17 +202,31 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 まだありません。屋根を作図してパネルを配置すると実行できます。
               </p>
             ) : (
-              <ul className="flex flex-col gap-2 text-sm">
-                {project.simulations.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between gap-2">
-                    <span>v{s.version}</span>
-                    <span className="tabular-nums text-[var(--text-muted)]">
-                      {(s.installedW / 1000).toFixed(2)} kW ·{' '}
-                      {jpy.format(Math.round(s.annualGenerationKWh))} kWh
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {project.simulations.some((s) => s.isDemo) && (
+                  <div className="mb-3">
+                    <DemoFiguresNotice />
+                  </div>
+                )}
+                <ul className="flex flex-col gap-2 text-sm">
+                  {project.simulations.map((s) => (
+                    <li key={s.id} className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5">
+                        v{s.version}
+                        {s.isDemo && (
+                          <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                            参考値
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="tabular-nums text-[var(--text-muted)]">
+                        {(s.installedW / 1000).toFixed(2)} kW ·{' '}
+                        {jpy.format(Math.round(s.annualGenerationKWh))} kWh
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </Card>
 

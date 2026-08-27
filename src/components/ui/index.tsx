@@ -236,6 +236,29 @@ export function Alert({
   );
 }
 
+/**
+ * The banner that has to appear beside any figure derived from demonstration
+ * data. Deliberately one component rather than a string repeated per screen:
+ * the wording is a safety notice, and a copy that drifts is a copy that will
+ * one day be softened on the screen that most needed it.
+ */
+export function DemoFiguresNotice({ fields = [] }: { fields?: readonly string[] }) {
+  return (
+    <div data-testid="demo-figures-notice">
+      <Alert tone="warning" title="参考値（デモ用データ）— お客様への提示は不可">
+        <p>
+          この数値はデモ用の概算係数から計算されています。おおよその傾向はつかめますが、
+          実際の発電量・経済効果とは異なります。<strong>見積の発行はできません。</strong>
+        </p>
+        <p className="mt-1">
+          管理 → 係数 / 単価 / パネル で、データシートや公的資料に基づく値を登録すると解除されます。
+        </p>
+        {fields.length > 0 && <p className="mt-1 text-xs opacity-80">対象: {fields.join(', ')}</p>}
+      </Alert>
+    </div>
+  );
+}
+
 /** Numeric display with its unit, so a figure is never ambiguous on screen. */
 export function Stat({
   label,

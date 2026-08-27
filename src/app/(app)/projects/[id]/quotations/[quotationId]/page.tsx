@@ -3,7 +3,16 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/server/auth/service';
 import { can } from '@/server/auth/rbac';
 import { getQuotation } from '@/server/services/quotations';
-import { Alert, Badge, Card, CardTitle, LinkButton, PageHeader, Stat } from '@/components/ui';
+import {
+  Alert,
+  Badge,
+  Card,
+  CardTitle,
+  DemoFiguresNotice,
+  LinkButton,
+  PageHeader,
+  Stat,
+} from '@/components/ui';
 import { QuotationActions } from './quotation-actions';
 
 const jpy = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 });
@@ -97,6 +106,18 @@ export default async function QuotationDetailPage({
           </span>
         )}
       </div>
+
+      {quotation.simulation?.isDemo && (
+        <div className="mb-4">
+          <DemoFiguresNotice
+            fields={
+              Array.isArray(quotation.simulation.demoFields)
+                ? (quotation.simulation.demoFields as string[])
+                : []
+            }
+          />
+        </div>
+      )}
 
       {quotation.status !== 'DRAFT' && (
         <Alert tone="info" title="この見積は確定しています">

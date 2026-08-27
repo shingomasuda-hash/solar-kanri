@@ -304,3 +304,25 @@
     print-color-adjust: exact;
   }
 }
+
+/*
+ * Demonstration banner.
+ *
+ * Printed as well as shown on screen, and deliberately hard to miss: a sheet
+ * that leaves the office without this line is the exact failure the demo data
+ * exists to avoid. `print-color-adjust` keeps the fill when a browser would
+ * otherwise drop backgrounds to save ink.
+ */
+.print-demo-banner {
+  margin: 0 0 8mm;
+  border: 1.5pt solid #b45309;
+  border-radius: 2mm;
+  background: #fef3c7;
+  color: #7c2d12;
+  padding: 3mm 4mm;
+  font-size: 10pt;
+  font-weight: 700;
+  line-height: 1.5;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}

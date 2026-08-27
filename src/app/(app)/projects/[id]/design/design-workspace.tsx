@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CardTitle,
+  DemoFiguresNotice,
   EmptyState,
   Field,
   Input,
@@ -636,10 +637,11 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
               </div>
             )}
             {simState.simulationId && (
-              <div className="mt-3">
+              <div className="mt-3 space-y-3">
                 <Alert tone="success" title="シミュレーションを保存しました">
                   案件画面で結果を確認できます。
                 </Alert>
+                {simState.isDemo && <DemoFiguresNotice fields={simState.demoFields} />}
               </div>
             )}
           </Card>

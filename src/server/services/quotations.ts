@@ -13,6 +13,26 @@ import { calculateQuotation, suggestLineItems, type QuotationLineInput } from '@
  * price change must not silently rewrite a document a customer already has.
  */
 
+/**
+ * A quotation may be drafted from a demonstration simulation — reviewing the
+ * layout and the shape of the numbers is exactly what a demo is for — but it
+ * cannot be issued. An issued quotation is a commitment, and a figure that is
+ * roughly right is more dangerous here than one that is obviously missing.
+ */
+export class DemoQuotationError extends Error {
+  readonly fields: readonly string[];
+
+  constructor(fields: readonly string[]) {
+    super(
+      'このシミュレーションはデモ用の概算値を含むため、見積を発行できません。' +
+        `管理画面で次の値に実際の出典を登録してください: ${fields.join(', ') || 'デモ係数'} / ` +
+        'Refusing to issue: the simulation behind this quotation used demonstration figures.',
+    );
+    this.name = 'DemoQuotationError';
+    this.fields = fields;
+  }
+}
+
 export class QuotationLockedError extends Error {
   constructor() {
     super(
@@ -205,13 +225,19 @@ export async function issueQuotation(user: SessionUser, id: string) {
   requirePermission(user, 'quotation:issue');
   const existing = await prisma.quotation.findUnique({
     where: { id },
-    include: { project: true, items: true },
+    include: { project: true, items: true, simulation: true },
   });
   if (!existing) throw new Error('見積が見つかりません / Quotation not found');
   assertOwnership(user, existing.project.ownerId);
   if (existing.status !== 'DRAFT') throw new QuotationLockedError();
   if (existing.items.length === 0) {
     throw new Error('明細が1件もありません。発行前に内容を入力してください。');
+  }
+  if (existing.simulation?.isDemo) {
+    const fields = Array.isArray(existing.simulation.demoFields)
+      ? (existing.simulation.demoFields as string[])
+      : [];
+    throw new DemoQuotationError(fields);
   }
 
   const quotation = await prisma.quotation.update({
