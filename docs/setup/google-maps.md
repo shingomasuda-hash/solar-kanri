@@ -101,9 +101,45 @@ Geocoding is billed per request, so the application:
 - stores each project's coordinates, so revisiting a project costs nothing;
 - never geocodes on keystroke.
 
-Set a **budget alert** in Cloud Billing and a **daily quota cap** per API
-(APIs & Services → Quotas). A cap is the only thing that bounds the damage from
-a leaked key.
+### What this actually costs
+
+Google removed the universal $200 monthly credit in March 2025. Each API now
+has its own free monthly allowance — 10,000 calls, at the time of writing —
+after which you pay per request (Geocoding is around $5 per 1,000).
+
+For a small sales team the bill is nothing, and the reason is worth
+understanding rather than assuming:
+
+| API             | Called when              | Realistic month |
+| --------------- | ------------------------ | --------------- |
+| Maps JavaScript | Every design-screen open | ~3,300          |
+| Geocoding       | Once per property, ever  | ~200            |
+| Solar           | Once per building, ever  | ~200            |
+
+The last two are two orders of magnitude smaller than the first because both
+are cached — the address by normalised string and then by the project's stored
+coordinates, the building insight on the property row. Only the map load
+recurs, because a map cannot be cached across page loads.
+
+**Set a daily quota cap anyway.** Google Maps Platform → 割り当て, per API:
+
+| API                 | Requests per day |
+| ------------------- | ---------------- |
+| Maps JavaScript API | 300              |
+| Geocoding API       | 100              |
+| Solar API           | 100              |
+
+300 × 31 stays inside the free allowance even if the cap is hit every day.
+
+A cap is the only thing that bounds the damage from a leaked key, and the
+browser key is readable by anyone who views the page — that is what it is for.
+A budget alert (Cloud Billing → 予算とアラート) tells you afterwards; only the
+quota stops it. When a cap is reached the address search fails with a message
+and the operator carries on by entering coordinates directly, which is the
+behaviour you want: stopping and being noticed beats billing quietly.
+
+Verify current prices before relying on these numbers — Google has restructured
+this pricing once already.
 
 ## Deprecation note
 
