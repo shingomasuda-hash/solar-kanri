@@ -46,6 +46,10 @@ step "integration tests" npx vitest run tests/integration
 step "production build" npm run build
 
 if [ "${SKIP_E2E:-0}" != "1" ]; then
+  # Load the demo catalogue without activating it. The demo spec switches to it
+  # through the admin console and switches back, so every other spec keeps
+  # running against the ordinary seed.
+  step "demo fixtures" env DEMO_ACTIVATE=0 npm run db:seed:demo
   step "browser (E2E)" npx playwright test
 else
   echo ""

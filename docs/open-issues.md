@@ -193,3 +193,21 @@ by `tests/unit/server/db-client.test.ts`.
 Both were reported by a person running the build, not by the gate, because the
 gate only ever ran in a directory that had already been set up. The session
 start hook now provisions a container from scratch, so that blind spot closes.
+
+### OI-109 — 実データ収集までの空白期間 — RESOLVED（暫定）
+
+OI-002 / OI-003 が未解決のあいだ、システムは何も計算できず、フローを見せることも
+できなかった。プロダクトオーナーの判断で、概算値による**デモ用ティア**を追加した。
+
+`SourceKind` に `DEMO_APPROXIMATION` を追加し、境界をふたつに分けた。
+
+- `assertSimulatable()` — エンジン側。プレースホルダのみ拒否し、デモ値は通す。
+- `assertProductionReady()` — 見積発行時。デモ値も拒否する。
+
+デモ値は「だいたい合っている」ため、欠損値より危険である。だから計算はさせても、
+顧客に渡る境界だけは通さない。シミュレーション行に `isDemo` と `demoFields` を保存し、
+画面・印刷物の警告表示と発行拒否の根拠にしている。
+
+**これは OI-002 / OI-003 の代替ではない。** デモを起動しているあいだ、
+システム状態は緑にならず（`degraded`）、見積は1件も発行できない。
+実データの登録手順は `docs/setup/panel-catalogue.md`。

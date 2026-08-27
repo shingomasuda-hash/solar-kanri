@@ -38,9 +38,16 @@ do not work around it — pass the value in as an argument.
 1. **The AI never computes a customer-facing number.** Engines do. The Copilot
    quotes them.
 2. **Every coefficient carries a source.** `Sourced<number>`, not `number`.
-   `assertProductionReady()` throws before any calculation that would use an
-   unverified placeholder. A fresh install refuses to simulate until an
-   administrator enters real values — that is intended, not a bug.
+   A fresh install refuses to simulate until an administrator enters real
+   values — that is intended, not a bug. Two guards, at two different
+   boundaries, and the distinction matters:
+   - `assertSimulatable()` — the engines. Refuses a placeholder, which is a
+     value nobody supplied.
+   - `assertProductionReady()` — issuing a quotation. Refuses a placeholder
+     _and_ a `demo-approximation`, which is a value that is roughly right and
+     traceable to nothing. Roughly right is what makes it dangerous here.
+     `npm run db:seed:demo` loads the demonstration tier so the flow can be
+     walked through; every screen marks it and issuing is blocked.
 3. **Never invent a constant.** Temperature coefficients, wiring losses, CO₂
    factors, degradation rates, irradiance: datasheet, standard, official
    dataset, or a named administrator decision. Nothing else.
@@ -188,6 +195,7 @@ npm run test:solar     Solar calculation regression + golden suite
 npm run test:e2e       Playwright browser tests
 npm run db:migrate   Create and apply a migration
 npm run db:seed      Seed reference data
+npm run db:seed:demo Demonstration data — runs, but can never be quoted
 npx tsx scripts/bench-layout.ts   Layout engine benchmark
 ```
 

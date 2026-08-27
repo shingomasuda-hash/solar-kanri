@@ -25,6 +25,17 @@ Sign in as `admin@example.com` with your `SEED_ADMIN_PASSWORD`.
 `npm run build` both regenerate it, so a clean clone builds with no extra step.
 Neither generation nor the build needs a reachable database.
 
+### すぐ動かしてみたい場合 / Try it immediately
+
+```bash
+npm run db:seed:demo
+```
+
+代表的なパネル10件・損失係数・電力単価・日射量観測点を投入し、フロー全体が通るように
+なります。**すべて概算値で、出典はありません。** シミュレーションは動きますが、結果は
+全画面で「参考値（デモ用データ）」と表示され、**見積の発行は拒否されます**。
+実データへの差し替え手順は [`docs/setup/panel-catalogue.md`](docs/setup/panel-catalogue.md)。
+
 **The first thing you will see is the calculation engine reporting itself
 stopped.** That is correct. Every seeded coefficient is an unverified
 placeholder, and the engines refuse to produce a customer-facing figure from
@@ -65,6 +76,7 @@ E2E suite proves it by running that way.
 | `npm run gate:fast`               | The same without the browser suite                         |
 | `npm test`                        | Unit and regression tests                                  |
 | `npm run test:integration`        | Server layer against a real database (skips without one)   |
+| `npm run db:seed:demo`            | Demonstration data — runs, but can never be quoted         |
 | `npm run test:geometry`           | Panel placement regression suite                           |
 | `npm run test:solar`              | Solar calculation regression and golden suite              |
 | `npm run test:e2e`                | Browser tests (builds first)                               |

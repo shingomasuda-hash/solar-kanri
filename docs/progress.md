@@ -180,12 +180,12 @@ Last updated: 2026-08-26
 | `prettier --check`             | PASS               |
 | `eslint`                       | PASS               |
 | `tsc --noEmit`                 | PASS               |
-| Unit + regression tests        | PASS — 424         |
-| Integration (real database)    | PASS — 9           |
+| Unit + regression tests        | PASS — 433         |
+| Integration (real database)    | PASS — 12          |
 | Geometry regression            | PASS — 14 fixtures |
 | Solar golden comparison        | BLOCKED — OI-001   |
 | Production build               | PASS               |
-| E2E browser (desktop + mobile) | PASS — 80          |
+| E2E browser (desktop + mobile) | PASS — 84          |
 
 ---
 
