@@ -8,6 +8,7 @@ import {
   generateSessionToken,
   hashSessionToken,
   sessionCookieOptions,
+  shouldUseSecureCookie,
   type SessionUser,
 } from './session';
 import { recordAudit } from '../services/audit';
@@ -199,7 +200,8 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
 
 export async function setSessionCookie(token: string, expiresAt: Date): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
+  const proto = (await headers()).get('x-forwarded-proto');
+  store.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt, shouldUseSecureCookie(proto)));
 }
 
 export async function clearSessionCookie(): Promise<void> {

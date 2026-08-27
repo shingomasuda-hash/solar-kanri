@@ -98,6 +98,16 @@ Vercel → Settings → Environment Variables。
 
 `NEXT_PUBLIC_` が付くものだけがブラウザに露出します。それ以外は絶対に付けないでください。
 
+### `NODE_ENV` は設定しないでください
+
+ホスティング側が自動で設定します。`.env.example` をそのまま貼り付けると
+`NODE_ENV="development"` が本番に入り、ログの冗長化など実行時の挙動が変わります。
+すでに設定されている場合は削除してください。
+
+（セッションCookieの `Secure` 属性は `x-forwarded-proto` から判定するようにしたので、
+`NODE_ENV` が誤っていても HTTPS 配信なら `Secure` は落ちません。それでも
+`NODE_ENV` を本番に置く理由はありません。）
+
 `.env.example` には `SESSION_SECRET` の記載がありますが、**現在のコードは使用していません**。
 セッションはランダムなトークンをDBに保存する方式で、署名鍵を必要としません
 （`src/server/auth/session.ts`）。設定しても害はありませんが、必須ではありません。
