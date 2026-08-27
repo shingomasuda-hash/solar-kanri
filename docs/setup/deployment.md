@@ -32,8 +32,10 @@ Amazon RDS など）。
 ### Neon の場合
 
 1. [neon.com](https://neon.com) でアカウントを作成
-2. **Create project** — リージョンは利用者に近い場所（国内なら Asia Pacific
-   (Tokyo)）。PostgreSQL のバージョンは既定のままで構いません
+2. **Create project** — Region は **Asia Pacific (Singapore)**。
+   Neon に東京リージョンはなく、Asia Pacific は Singapore と Sydney だけです
+   （[Regions](https://neon.com/docs/introduction/regions)）。
+   PostgreSQL のバージョンは既定のままで構いません
 3. 作成直後に表示される **Connection string** をコピー
 
 Neon は接続文字列を2種類出します。**両方を使い分けます。**
@@ -52,6 +54,19 @@ Neon は接続文字列を2種類出します。**両方を使い分けます。
 マイグレーションは直接接続で流します。
 
 どちらの文字列にも `?sslmode=require` が含まれていることを確認してください。
+
+### 関数とデータベースを同じ地域に置く
+
+Vercel の関数リージョンは既定で `iad1`（米国東部）です。データベースだけ
+Singapore にすると、1リクエストごとに太平洋を2往復します。このアプリは1画面で
+複数回問い合わせるので、往復回数がそのまま体感差になります。
+
+**Vercel → Settings → Functions → Function Region → Singapore (sin1)**
+
+これで関数とデータベースが並び、日本からの往復は1回だけになります。
+
+国内リージョンが業務要件になる場合、Neon では現状対応できません。Supabase の
+Tokyo か Cloud SQL が選択肢ですが、いずれも無料枠の話ではなくなります。
 
 ### 接続プーリング
 
