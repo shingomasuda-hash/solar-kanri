@@ -172,3 +172,24 @@ held on `globalThis`, the same pattern the Prisma client uses. Worth knowing
 generally: **module-level mutable state is not reliable in this framework**. The
 unit tests could not catch it (they import the module once); the browser test
 did.
+
+### OI-108 — A clean clone could not build — RESOLVED
+
+`npm run build` failed on any checkout that had not already run the project,
+for two independent reasons.
+
+`generated/` holds the Prisma client and is not committed — correctly, since
+generated code in version control goes stale silently — but nothing regenerated
+it. Both `postinstall` and `build` now run `prisma generate`.
+
+The client was then constructed at module load, so `next build` threw
+`DATABASE_URL is not set` while collecting page data. A build opens no
+connections, and a deployment that injects secrets at runtime — which is what
+the deployment rules ask for — could therefore never produce an artifact. The
+client is now built on first query instead, behind a proxy, and the
+missing-URL error surfaces on the first request with the same message. Pinned
+by `tests/unit/server/db-client.test.ts`.
+
+Both were reported by a person running the build, not by the gate, because the
+gate only ever ran in a directory that had already been set up. The session
+start hook now provisions a container from scratch, so that blind spot closes.

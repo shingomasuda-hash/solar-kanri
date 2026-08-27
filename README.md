@@ -21,6 +21,10 @@ npm run dev
 
 Sign in as `admin@example.com` with your `SEED_ADMIN_PASSWORD`.
 
+`generated/` (the Prisma client) is not committed — `npm install` and
+`npm run build` both regenerate it, so a clean clone builds with no extra step.
+Neither generation nor the build needs a reachable database.
+
 **The first thing you will see is the calculation engine reporting itself
 stopped.** That is correct. Every seeded coefficient is an unverified
 placeholder, and the engines refuse to produce a customer-facing figure from

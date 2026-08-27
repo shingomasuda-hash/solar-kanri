@@ -30,6 +30,19 @@ Prisma 7 no longer reads the connection URL from `schema.prisma`. Migrate takes
 it from `prisma.config.ts`; the runtime client takes it from the `pg` driver
 adapter in `src/server/db/client.ts`. Both read `DATABASE_URL`.
 
+## The generated client
+
+`generated/` holds the Prisma client and is **not** committed — generated code
+in version control goes stale silently. `npm install` regenerates it through a
+`postinstall` script, and `npm run build` regenerates it again, so a clean clone
+builds without anyone having to remember the step.
+
+Neither generation nor the build needs a reachable database, or even
+`DATABASE_URL`. The client is constructed on its first query, not when the
+module is imported, so an image can be built where secrets only exist at
+runtime. The missing-URL error then surfaces on the first request instead of
+during the build.
+
 ## After seeding
 
 The seed deliberately marks **every coefficient and tariff as unverified**, and
