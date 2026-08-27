@@ -20,7 +20,17 @@ export function LoginForm() {
   return (
     <Card>
       <form action={action} className="flex flex-col gap-4">
-        {state.error && <Alert tone="danger">{state.error}</Alert>}
+        {state.error &&
+          (state.isSetupFault ? (
+            <Alert tone="warning" title="サーバー設定の問題です">
+              <p data-testid="login-setup-error">{state.error}</p>
+              <p className="mt-1 text-xs opacity-80">
+                この画面で解決できる問題ではありません。時間をおいても直りません。
+              </p>
+            </Alert>
+          ) : (
+            <Alert tone="danger">{state.error}</Alert>
+          ))}
         <Field label="メールアドレス" htmlFor="email" required>
           <Input id="email" name="email" type="email" autoComplete="username" required autoFocus />
         </Field>

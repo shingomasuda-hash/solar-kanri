@@ -44,3 +44,5 @@ The outstanding items and who has to decide them are listed in
 ```bash
 npm run gate    # format, lint, typecheck, unit + regression tests, build, E2E
 ```
+
+- [`deployment.md`](deployment.md) — Vercel などへのデプロイ、環境変数、マイグレーション

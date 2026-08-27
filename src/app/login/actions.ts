@@ -10,9 +10,12 @@ import {
 } from '@/server/auth/service';
 import { RateLimitedError } from '@/server/auth/rate-limit';
 import { loginSchema } from '@/server/validation/schemas';
+import { diagnoseSetupFault } from '@/server/setup-diagnosis';
 
 export interface LoginState {
   readonly error?: string;
+  /** True when the failure is a configuration fault, not a bad password. */
+  readonly isSetupFault?: boolean;
 }
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
@@ -37,6 +40,13 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
       return { error: err.message };
     }
     console.error('[login] unexpected failure', err);
+
+    // A deployment missing its database is not a transient failure, and
+    // "try again later" sends the operator away from the only thing that
+    // would fix it. Name the setting; never the value.
+    const setup = diagnoseSetupFault(err);
+    if (setup) return { error: setup.message, isSetupFault: true };
+
     return { error: 'ログイン処理でエラーが発生しました。しばらくしてからお試しください。' };
   }
 
