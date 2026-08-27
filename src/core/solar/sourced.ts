@@ -23,6 +23,16 @@ export type SourceKind =
   /** A named administrator entered this value and owns it. */
   | 'administrator-input'
   /**
+   * A representative figure loaded for demonstration. Roughly right for a
+   * Japanese residential system, traceable to nothing. It exists so the whole
+   * sales flow can be walked through before an administrator has collected real
+   * datasheets, and it is deliberately a different thing from a placeholder:
+   * {@link assertSimulatable} lets it run, {@link assertProductionReady}
+   * refuses it, so a demo figure can be explored on screen but can never leave
+   * the building inside an issued quotation.
+   */
+  | 'demo-approximation'
+  /**
    * A seeded default that NOBODY has verified yet. Present so the system is
    * runnable in development. {@link assertProductionReady} rejects it.
    */
@@ -65,8 +75,30 @@ export function placeholder<T>(value: T, note: string): Sourced<T> {
   };
 }
 
+/** Nothing was supplied at all. Blocks every calculation. */
+export function demoValue<T>(value: T, note: string): Sourced<T> {
+  return {
+    value,
+    source: {
+      kind: 'demo-approximation',
+      citation: 'DEMO APPROXIMATION — representative figure, not traceable to any document',
+      note,
+    },
+  };
+}
+
+export function isPlaceholder(s: Sourced<unknown>): boolean {
+  return s.source.kind === 'unverified-placeholder';
+}
+
+/** Roughly right, traceable to nothing. May be explored, never quoted. */
+export function isDemo(s: Sourced<unknown>): boolean {
+  return s.source.kind === 'demo-approximation';
+}
+
+/** Traceable to a datasheet, standard, dataset, API or a named administrator. */
 export function isVerified(s: Sourced<unknown>): boolean {
-  return s.source.kind !== 'unverified-placeholder';
+  return !isPlaceholder(s) && !isDemo(s);
 }
 
 export class UnsourcedCoefficientError extends Error {
@@ -84,23 +116,52 @@ export class UnsourcedCoefficientError extends Error {
 }
 
 /**
- * Walk an object tree and collect the paths of every {@link Sourced} value that
- * is still an unverified placeholder.
+ * Walk an object tree and collect the paths of every {@link Sourced} value the
+ * predicate matches. Paths are dotted and indexed, so the caller can name the
+ * offending field rather than saying "something is unsourced".
  */
-export function findUnsourced(input: unknown, path = ''): string[] {
+export class DemoFiguresError extends Error {
+  readonly fields: readonly string[];
+
+  constructor(fields: readonly string[]) {
+    super(
+      `Refusing to issue a customer-facing document: ${fields.length} figure(s) are ` +
+        `demonstration approximations (${fields.join(', ')}). Replace them with datasheet, ` +
+        'standard or administrator-sourced values in the admin console first.',
+    );
+    this.name = 'DemoFiguresError';
+    this.fields = fields;
+  }
+}
+
+export function findSourced(
+  input: unknown,
+  match: (s: Sourced<unknown>) => boolean,
+  path = '',
+): string[] {
   if (input === null || typeof input !== 'object') return [];
   if (isSourcedShape(input)) {
-    return isVerified(input) ? [] : [path || '(root)'];
+    return match(input) ? [path || '(root)'] : [];
   }
   const out: string[] = [];
   if (Array.isArray(input)) {
-    input.forEach((item, i) => out.push(...findUnsourced(item, `${path}[${i}]`)));
+    input.forEach((item, i) => out.push(...findSourced(item, match, `${path}[${i}]`)));
     return out;
   }
   for (const [key, val] of Object.entries(input)) {
-    out.push(...findUnsourced(val, path ? `${path}.${key}` : key));
+    out.push(...findSourced(val, match, path ? `${path}.${key}` : key));
   }
   return out;
+}
+
+/** Paths of every value nobody has supplied at all. */
+export function findUnsourced(input: unknown, path = ''): string[] {
+  return findSourced(input, isPlaceholder, path);
+}
+
+/** Paths of every value that is a demonstration figure. */
+export function findDemo(input: unknown, path = ''): string[] {
+  return findSourced(input, isDemo, path);
 }
 
 function isSourcedShape(v: object): v is Sourced<unknown> {
@@ -108,10 +169,30 @@ function isSourcedShape(v: object): v is Sourced<unknown> {
 }
 
 /**
- * Throw unless every coefficient reachable from `input` carries a real source.
- * Call this at the boundary of any calculation whose result a customer sees.
+ * Throw unless every coefficient reachable from `input` has *something* behind
+ * it. Demonstration figures pass; placeholders do not.
+ *
+ * This is the engines' guard. It is deliberately weaker than
+ * {@link assertProductionReady}: the engines are allowed to compute a number
+ * from figures marked as a demonstration, because exploring the flow on screen
+ * is useful and harmless. What must never happen is that number reaching a
+ * customer, and that is a different boundary — see below.
+ */
+export function assertSimulatable(input: unknown): void {
+  const missing = findUnsourced(input);
+  if (missing.length > 0) throw new UnsourcedCoefficientError(missing);
+}
+
+/**
+ * Throw unless every coefficient reachable from `input` is genuinely traceable.
+ *
+ * Call this wherever a figure becomes a commitment to a customer — issuing a
+ * quotation, above all. A demonstration figure is roughly right, which is
+ * precisely what makes it dangerous here: it looks like an answer.
  */
 export function assertProductionReady(input: unknown): void {
   const missing = findUnsourced(input);
   if (missing.length > 0) throw new UnsourcedCoefficientError(missing);
+  const demo = findDemo(input);
+  if (demo.length > 0) throw new DemoFiguresError(demo);
 }

@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DemoFiguresError,
   UnsourcedCoefficientError,
   assertProductionReady,
+  assertSimulatable,
+  demoValue,
+  findDemo,
   findUnsourced,
+  isDemo,
+  isPlaceholder,
   isVerified,
   placeholder,
   sourced,
@@ -77,5 +83,55 @@ describe('assertProductionReady', () => {
       expect(e.message).toContain('x');
       expect(e.message).toContain('y.z');
     }
+  });
+});
+
+/**
+ * The demonstration tier exists so the sales flow can be walked through before
+ * any datasheet has been collected. It is only safe because it is a *third*
+ * state: computable, but never quotable. These tests pin both edges — a demo
+ * figure that stopped computing would make the demo useless, and one that
+ * started passing assertProductionReady would put an invented temperature
+ * coefficient into a customer's quotation.
+ */
+describe('demonstration figures', () => {
+  const demo = demoValue(0.97, 'representative wiring loss');
+
+  it('is neither a placeholder nor verified', () => {
+    expect(isDemo(demo)).toBe(true);
+    expect(isPlaceholder(demo)).toBe(false);
+    expect(isVerified(demo)).toBe(false);
+  });
+
+  it('does not appear in findUnsourced — nothing is missing, it is just not traceable', () => {
+    expect(findUnsourced({ a: demo })).toEqual([]);
+    expect(findDemo({ a: demo })).toEqual(['a']);
+  });
+
+  it('computes: the engines accept it', () => {
+    expect(() => assertSimulatable({ a: demo, b: sourced(1, REAL) })).not.toThrow();
+  });
+
+  it('never reaches a customer: assertProductionReady refuses it by name', () => {
+    try {
+      assertProductionReady({ losses: { wiring: demo }, module: { temp: demo } });
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(DemoFiguresError);
+      const e = err as DemoFiguresError;
+      expect([...e.fields].sort()).toEqual(['losses.wiring', 'module.temp']);
+    }
+  });
+
+  it('reports a missing value ahead of a demo one', () => {
+    // Both are wrong, but they need different actions, and "nobody supplied
+    // this" is the more fundamental of the two.
+    expect(() => assertProductionReady({ a: placeholder(1, 'x'), b: demo })).toThrow(
+      UnsourcedCoefficientError,
+    );
+  });
+
+  it('still refuses a placeholder at the simulate boundary', () => {
+    expect(() => assertSimulatable({ a: placeholder(1, 'x') })).toThrow(UnsourcedCoefficientError);
   });
 });

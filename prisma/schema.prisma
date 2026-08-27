@@ -8,8 +8,8 @@
 //  - Customer and project records are soft-deleted.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
   moduleFormat = "esm"
 }
 
@@ -37,10 +37,10 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  ownedCustomers Customer[] @relation("CustomerOwner")
-  ownedProjects  Project[]  @relation("ProjectOwner")
+  ownedCustomers Customer[]   @relation("CustomerOwner")
+  ownedProjects  Project[]    @relation("ProjectOwner")
   activities     Activity[]
-  assignedTasks  Task[]     @relation("TaskAssignee")
+  assignedTasks  Task[]       @relation("TaskAssignee")
   notes          Note[]
   auditLogs      AuditLog[]
   quotations     Quotation[]
@@ -51,16 +51,16 @@ model User {
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   // SHA-256 of the session token. The token itself is never stored, so a
   // database leak cannot be replayed as a login.
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   userAgent String?
   ipAddress String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   revokedAt DateTime?
 
   @@index([userId])
@@ -107,14 +107,14 @@ model Customer {
 /// Sales pipeline stages. Editable by an administrator so the process can
 /// change without a code change (project brief rule 30).
 model SalesStatus {
-  id         String  @id @default(cuid())
-  key        String  @unique
-  label      String
-  sortOrder  Int
-  isWon      Boolean @default(false)
-  isLost     Boolean @default(false)
-  isActive   Boolean @default(true)
-  colorHex   String  @default("#64748b")
+  id        String  @id @default(cuid())
+  key       String  @unique
+  label     String
+  sortOrder Int
+  isWon     Boolean @default(false)
+  isLost    Boolean @default(false)
+  isActive  Boolean @default(true)
+  colorHex  String  @default("#64748b")
 
   projects Project[]
 
@@ -122,24 +122,24 @@ model SalesStatus {
 }
 
 model Project {
-  id            String       @id @default(cuid())
-  code          String       @unique
-  title         String
-  customerId    String
-  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  propertyId    String?
-  property      Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  statusId      String
-  status        SalesStatus  @relation(fields: [statusId], references: [id], onDelete: Restrict)
-  ownerId       String?
-  owner         User?        @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  id                String      @id @default(cuid())
+  code              String      @unique
+  title             String
+  customerId        String
+  customer          Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  propertyId        String?
+  property          Property?   @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  statusId          String
+  status            SalesStatus @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  ownerId           String?
+  owner             User?       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   expectedCloseDate DateTime?
-  nextActionAt  DateTime?
-  nextActionNote String?
-  lostReason    String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  deletedAt     DateTime?
+  nextActionAt      DateTime?
+  nextActionNote    String?
+  lostReason        String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?
 
   activities  Activity[]
   tasks       Task[]
@@ -165,25 +165,25 @@ enum PitchSource {
 }
 
 model Property {
-  id          String   @id @default(cuid())
-  customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  label       String   @default("本邸")
-  postalCode  String?
-  prefecture  String?
-  city        String?
-  addressLine String?
+  id                      String    @id @default(cuid())
+  customerId              String
+  customer                Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label                   String    @default("本邸")
+  postalCode              String?
+  prefecture              String?
+  city                    String?
+  addressLine             String?
   /// Geocoded position. Cached so a revisit costs no Geocoding API call.
-  latitude    Float?
-  longitude   Float?
-  geocodedAt  DateTime?
+  latitude                Float?
+  longitude               Float?
+  geocodedAt              DateTime?
   /// Verbatim formatted address the Geocoding API returned, for audit.
   geocodeFormattedAddress String?
-  mapZoom     Float?   @default(20)
+  mapZoom                 Float?    @default(20)
   /// Google Solar API building insight, mapped to our domain types. Optional.
-  solarInsight Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  solarInsight            Json?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   roofFaces RoofFace[]
   projects  Project[]
@@ -192,28 +192,28 @@ model Property {
 }
 
 model RoofFace {
-  id         String      @id @default(cuid())
-  propertyId String
-  property   Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  label      String
+  id              String      @id @default(cuid())
+  propertyId      String
+  property        Property    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label           String
   /// WGS84 GeoJSON Polygon. The horizontal projection, as traced on imagery.
-  outline    Json
+  outline         Json
   /// Tilt from horizontal, degrees. Null when pitchSource is UNKNOWN.
-  pitchDeg   Float?
+  pitchDeg        Float?
   /// Down-slope compass direction, degrees (0 = N, 90 = E, 180 = S).
-  azimuthDeg Float
-  pitchSource PitchSource @default(UNKNOWN)
+  azimuthDeg      Float
+  pitchSource     PitchSource @default(UNKNOWN)
   /// Keep-out band inside the roof edge, metres.
-  setbackM   Float       @default(0.3)
+  setbackM        Float       @default(0.3)
   /// Gap between neighbouring modules, metres.
-  panelGapM  Float       @default(0.02)
+  panelGapM       Float       @default(0.02)
   /// Horizontally-projected area, m². Derived; cached for listing views.
   projectedAreaM2 Float?
   /// True roof-surface area, m². Equals projected / cos(pitch).
   surfaceAreaM2   Float?
-  sortOrder  Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  sortOrder       Int         @default(0)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   exclusionZones ExclusionZone[]
   layouts        Layout[]
@@ -231,17 +231,17 @@ enum ExclusionKind {
 }
 
 model ExclusionZone {
-  id          String        @id @default(cuid())
-  roofFaceId  String
-  roofFace    RoofFace      @relation(fields: [roofFaceId], references: [id], onDelete: Cascade)
-  kind        ExclusionKind @default(OTHER)
-  label       String?
+  id         String        @id @default(cuid())
+  roofFaceId String
+  roofFace   RoofFace      @relation(fields: [roofFaceId], references: [id], onDelete: Cascade)
+  kind       ExclusionKind @default(OTHER)
+  label      String?
   /// WGS84 GeoJSON Polygon, horizontal projection.
-  outline     Json
+  outline    Json
   /// Extra keep-out added around this zone, metres.
-  clearanceM  Float         @default(0.3)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  clearanceM Float         @default(0.3)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([roofFaceId])
 }
@@ -249,39 +249,44 @@ model ExclusionZone {
 // -------------------------------------------------------- product masters
 
 model PanelModel {
-  id             String   @id @default(cuid())
-  manufacturer   String
-  model          String
-  widthMm        Int
-  heightMm       Int
-  thicknessMm    Int?
-  weightKg       Float?
-  ratedPowerW    Int
-  efficiencyPct  Float?
+  id                       String    @id @default(cuid())
+  manufacturer             String
+  model                    String
+  widthMm                  Int
+  heightMm                 Int
+  thicknessMm              Int?
+  weightKg                 Float?
+  ratedPowerW              Int
+  efficiencyPct            Float?
   /// Pmax temperature coefficient, fraction per Kelvin. Negative.
   /// Datasheets quote %/°C: -0.35 %/°C is stored as -0.0035.
-  pmaxTempCoeffPerK Float
-  vocV           Float?
-  iscA           Float?
-  vmpV           Float?
-  impA           Float?
+  pmaxTempCoeffPerK        Float
+  vocV                     Float?
+  iscA                     Float?
+  vmpV                     Float?
+  impA                     Float?
   /// NOCT or NMOT, °C.
-  noctC          Float?
+  noctC                    Float?
   /// Annual power degradation, fraction per year.
-  annualDegradation Float
+  annualDegradation        Float
   productWarrantyYears     Int?
   performanceWarrantyYears Int?
-  datasheetUrl     String?
-  datasheetVersion String?
+  datasheetUrl             String?
+  datasheetVersion         String?
   /// Where these figures came from. Required — see CLAUDE.md calculation rules.
-  sourceCitation String
-  sourceUrl      String?
-  effectiveDate  DateTime?
-  verifiedAt     DateTime?
-  verifiedBy     String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  sourceCitation           String
+  sourceUrl                String?
+  effectiveDate            DateTime?
+  verifiedAt               DateTime?
+  verifiedBy               String?
+  /// A demonstration entry: roughly right, traceable to nothing. PanelModel
+  /// has no sourceKind column because a module row is only a datasheet source
+  /// once a human has checked it, which `verifiedAt` already records. This flag
+  /// carries the third state that distinction cannot express.
+  isDemo                   Boolean   @default(false)
+  isActive                 Boolean   @default(true)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   layouts Layout[]
 
@@ -290,26 +295,26 @@ model PanelModel {
 }
 
 model InverterModel {
-  id                String   @id @default(cuid())
-  manufacturer      String
-  model             String
-  ratedOutputW      Int
-  maxInputW         Int?
+  id                 String    @id @default(cuid())
+  manufacturer       String
+  model              String
+  ratedOutputW       Int
+  maxInputW          Int?
   /// Peak conversion efficiency as a multiplier, e.g. 0.965.
-  peakEfficiency    Float
+  peakEfficiency     Float
   /// JIS/Euro weighted efficiency as a multiplier, if published.
   weightedEfficiency Float?
-  mpptCount         Int?
-  datasheetUrl      String?
-  datasheetVersion  String?
-  sourceCitation    String
-  sourceUrl         String?
-  effectiveDate     DateTime?
-  verifiedAt        DateTime?
-  verifiedBy        String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  mpptCount          Int?
+  datasheetUrl       String?
+  datasheetVersion   String?
+  sourceCitation     String
+  sourceUrl          String?
+  effectiveDate      DateTime?
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   simulations Simulation[]
 
@@ -327,6 +332,8 @@ enum SourceKind {
   PUBLIC_DATASET
   PROVIDER_API
   ADMINISTRATOR_INPUT
+  /// Representative figure for demonstration. Runs, but can never be issued.
+  DEMO_APPROXIMATION
   UNVERIFIED_PLACEHOLDER
 }
 
@@ -366,52 +373,52 @@ model Coefficient {
 }
 
 model Tariff {
-  id                        String   @id @default(cuid())
-  key                       String   @unique
-  name                      String
-  purchasePriceJpyPerKWh    Float
-  exportPriceJpyPerKWh      Float
-  exportPriceYears          Int
-  postExportPriceJpyPerKWh  Float
-  annualPriceEscalation     Float
-  monthlyBasicChargeJpy     Int
+  id                          String     @id @default(cuid())
+  key                         String     @unique
+  name                        String
+  purchasePriceJpyPerKWh      Float
+  exportPriceJpyPerKWh        Float
+  exportPriceYears            Int
+  postExportPriceJpyPerKWh    Float
+  annualPriceEscalation       Float
+  monthlyBasicChargeJpy       Int
   defaultSelfConsumptionRatio Float
-  sourceKind                SourceKind @default(UNVERIFIED_PLACEHOLDER)
-  sourceCitation            String
-  sourceUrl                 String?
-  effectiveDate             DateTime?
-  verifiedAt                DateTime?
-  verifiedBy                String?
-  isDefault                 Boolean  @default(false)
-  isActive                  Boolean  @default(true)
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  sourceKind                  SourceKind @default(UNVERIFIED_PLACEHOLDER)
+  sourceCitation              String
+  sourceUrl                   String?
+  effectiveDate               DateTime?
+  verifiedAt                  DateTime?
+  verifiedBy                  String?
+  isDefault                   Boolean    @default(false)
+  isActive                    Boolean    @default(true)
+  createdAt                   DateTime   @default(now())
+  updatedAt                   DateTime   @updatedAt
 
   simulations Simulation[]
 }
 
 /// Administrator-entered monthly irradiance table (e.g. transcribed NEDO METPV).
 model IrradianceStation {
-  id             String   @id @default(cuid())
-  label          String
-  latitude       Float
-  longitude      Float
+  id                               String     @id @default(cuid())
+  label                            String
+  latitude                         Float
+  longitude                        Float
   /// { "1": 3.2, ... "12": 3.0 } kWh/m²/day.
   monthlyIrradiationKWhPerM2PerDay Json
   /// { "1": 6, ... "12": 9 } °C.
-  monthlyAmbientTempC Json
+  monthlyAmbientTempC              Json
   /// True when the figures are already plane-of-array for a stated tilt/azimuth.
-  isPlaneOfArray Boolean  @default(false)
-  tiltDeg        Float?
-  azimuthDeg     Float?
-  sourceKind     SourceKind @default(UNVERIFIED_PLACEHOLDER)
-  sourceCitation String
-  sourceUrl      String?
-  verifiedAt     DateTime?
-  verifiedBy     String?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isPlaneOfArray                   Boolean    @default(false)
+  tiltDeg                          Float?
+  azimuthDeg                       Float?
+  sourceKind                       SourceKind @default(UNVERIFIED_PLACEHOLDER)
+  sourceCitation                   String
+  sourceUrl                        String?
+  verifiedAt                       DateTime?
+  verifiedBy                       String?
+  isActive                         Boolean    @default(true)
+  createdAt                        DateTime   @default(now())
+  updatedAt                        DateTime   @updatedAt
 
   @@index([latitude, longitude])
 }
@@ -425,26 +432,26 @@ enum MountingType {
 }
 
 model Layout {
-  id           String     @id @default(cuid())
-  roofFaceId   String
-  roofFace     RoofFace   @relation(fields: [roofFaceId], references: [id], onDelete: Cascade)
-  panelModelId String
-  panelModel   PanelModel @relation(fields: [panelModelId], references: [id], onDelete: Restrict)
+  id               String     @id @default(cuid())
+  roofFaceId       String
+  roofFace         RoofFace   @relation(fields: [roofFaceId], references: [id], onDelete: Cascade)
+  panelModelId     String
+  panelModel       PanelModel @relation(fields: [panelModelId], references: [id], onDelete: Restrict)
   /// "layout-engine-v1"
   algorithmVersion String
   /// Placements in roof-plane metres, plus the frame needed to project them back.
-  placements   Json
-  panelCount   Int
-  installedW   Int
-  orientation  String?
-  angleDeg     Float      @default(0)
-  usableAreaM2 Float
+  placements       Json
+  panelCount       Int
+  installedW       Int
+  orientation      String?
+  angleDeg         Float      @default(0)
+  usableAreaM2     Float
   /// True when a human has edited the automatic result.
-  isManuallyEdited Boolean @default(false)
+  isManuallyEdited Boolean    @default(false)
   /// Search statistics and any warnings, kept for audit.
-  engineMeta   Json?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  engineMeta       Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   simulationLayouts SimulationLayout[]
 
@@ -458,25 +465,25 @@ model Simulation {
   version   Int
   label     String?
 
-  mounting          MountingType   @default(ROOF_FLUSH)
-  inverterModelId   String?
-  inverterModel     InverterModel? @relation(fields: [inverterModelId], references: [id], onDelete: SetNull)
-  coefficientSetId  String
-  coefficientSet    CoefficientSet @relation(fields: [coefficientSetId], references: [id], onDelete: Restrict)
-  tariffId          String
-  tariff            Tariff         @relation(fields: [tariffId], references: [id], onDelete: Restrict)
+  mounting         MountingType   @default(ROOF_FLUSH)
+  inverterModelId  String?
+  inverterModel    InverterModel? @relation(fields: [inverterModelId], references: [id], onDelete: SetNull)
+  coefficientSetId String
+  coefficientSet   CoefficientSet @relation(fields: [coefficientSetId], references: [id], onDelete: Restrict)
+  tariffId         String
+  tariff           Tariff         @relation(fields: [tariffId], references: [id], onDelete: Restrict)
 
-  installedW              Int
-  panelCount              Int
-  annualGenerationKWh     Float
-  specificYieldKWhPerKw   Float
-  performanceRatio        Float
-  annualCo2AvoidedKg      Float
-  firstYearBenefitJpy     Int
-  lifetimeNetJpy          Int
-  paybackYears            Float?
-  npvJpy                  Int
-  irr                     Float?
+  installedW            Int
+  panelCount            Int
+  annualGenerationKWh   Float
+  specificYieldKWhPerKw Float
+  performanceRatio      Float
+  annualCo2AvoidedKg    Float
+  firstYearBenefitJpy   Int
+  lifetimeNetJpy        Int
+  paybackYears          Float?
+  npvJpy                Int
+  irr                   Float?
 
   /// Engine versions, so a result is always attributable to a known model.
   solarEngineVersion     String
@@ -486,10 +493,18 @@ model Simulation {
   /// Complete input snapshot: module, coefficients, tariff, irradiance,
   /// consumption and cost, exactly as used. This is what makes a saved
   /// simulation reproducible after the masters have moved on.
-  inputSnapshot   Json
+  inputSnapshot  Json
   /// Full engine output: monthly yields, yearly cashflows, breakdown, warnings.
-  resultSnapshot  Json
-  warnings        Json?
+  resultSnapshot Json
+  warnings       Json?
+
+  /// True when any input was a demonstration approximation. A quotation built
+  /// on such a simulation may be drafted and reviewed, but refuses to be
+  /// issued: the figures are roughly right, which is exactly what makes them
+  /// unsafe to hand to a customer.
+  isDemo     Boolean @default(false)
+  /// Dotted paths of the demonstration figures, so the refusal can name them.
+  demoFields Json?
 
   createdById String?
   createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
@@ -523,31 +538,31 @@ enum QuotationStatus {
 }
 
 model Quotation {
-  id           String          @id @default(cuid())
-  projectId    String
-  project      Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  simulationId String?
-  simulation   Simulation?     @relation(fields: [simulationId], references: [id], onDelete: SetNull)
-  version      Int
-  status       QuotationStatus @default(DRAFT)
-  title        String
-  validUntil   DateTime?
+  id                 String          @id @default(cuid())
+  projectId          String
+  project            Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  simulationId       String?
+  simulation         Simulation?     @relation(fields: [simulationId], references: [id], onDelete: SetNull)
+  version            Int
+  status             QuotationStatus @default(DRAFT)
+  title              String
+  validUntil         DateTime?
   /// All money in integer JPY.
-  subtotalJpy  Int             @default(0)
-  discountJpy  Int             @default(0)
-  subsidyJpy   Int             @default(0)
-  taxRate      Float           @default(0.1)
-  taxJpy       Int             @default(0)
-  totalJpy     Int             @default(0)
-  notes        String?
+  subtotalJpy        Int             @default(0)
+  discountJpy        Int             @default(0)
+  subsidyJpy         Int             @default(0)
+  taxRate            Float           @default(0.1)
+  taxJpy             Int             @default(0)
+  totalJpy           Int             @default(0)
+  notes              String?
   /// Frozen copy of the simulation figures shown on the document, so a later
   /// re-simulation cannot change an issued quotation.
   simulationSnapshot Json?
-  issuedAt     DateTime?
-  createdById  String?
-  createdBy    User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  issuedAt           DateTime?
+  createdById        String?
+  createdBy          User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   items QuotationItem[]
 
@@ -566,17 +581,17 @@ enum QuotationCategory {
 }
 
 model QuotationItem {
-  id          String            @id @default(cuid())
-  quotationId String
-  quotation   Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  category    QuotationCategory
-  name        String
-  description String?
-  quantity    Float             @default(1)
-  unit        String            @default("式")
+  id           String            @id @default(cuid())
+  quotationId  String
+  quotation    Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  category     QuotationCategory
+  name         String
+  description  String?
+  quantity     Float             @default(1)
+  unit         String            @default("式")
   unitPriceJpy Int
-  amountJpy   Int
-  sortOrder   Int               @default(0)
+  amountJpy    Int
+  sortOrder    Int               @default(0)
 
   @@index([quotationId])
 }
@@ -674,16 +689,16 @@ enum KnowledgeKind {
 /// Retrieved by the AI Copilot. Content is UNTRUSTED: instructions inside a
 /// document are data, never commands (see ADR-006).
 model KnowledgeDocument {
-  id        String        @id @default(cuid())
-  kind      KnowledgeKind @default(MANUAL)
-  title     String
-  body      String
-  tags      String[]      @default([])
-  sourceUrl String?
+  id             String        @id @default(cuid())
+  kind           KnowledgeKind @default(MANUAL)
+  title          String
+  body           String
+  tags           String[]      @default([])
+  sourceUrl      String?
   sourceCitation String?
-  isActive  Boolean       @default(true)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([kind, isActive])
 }
@@ -718,12 +733,12 @@ model SystemSetting {
 /// One recorded health probe, so the admin console can show trend and recency
 /// rather than only a live check.
 model HealthCheck {
-  id         String   @id @default(cuid())
-  component  String
-  isHealthy  Boolean
-  latencyMs  Int?
-  message    String?
-  checkedAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  component String
+  isHealthy Boolean
+  latencyMs Int?
+  message   String?
+  checkedAt DateTime @default(now())
 
   @@index([component, checkedAt])
 }

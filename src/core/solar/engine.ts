@@ -1,4 +1,4 @@
-import { assertProductionReady } from './sourced';
+import { assertSimulatable } from './sourced';
 import {
   DAYS_IN_MONTH,
   MONTHS,
@@ -15,7 +15,7 @@ import {
  *
  * NOTHING here is inferred by a language model at runtime — rule 18 of the
  * project brief. Every coefficient arrives as a {@link Sourced} value from the
- * database, and {@link assertProductionReady} refuses to proceed if any of them
+ * database, and {@link assertSimulatable} refuses to proceed if any of them
  * is still an unverified placeholder.
  *
  * The model, per month m:
@@ -39,8 +39,10 @@ import {
  */
 export function simulateGeneration(input: SimulationInput): SimulationResult {
   validate(input);
-  // Refuse to produce a customer-facing number from unverified coefficients.
-  assertProductionReady({
+  // Refuse to compute anything from coefficients nobody has supplied. Figures
+  // marked as a demonstration are allowed through here and blocked at the point
+  // they would reach a customer — see assertProductionReady.
+  assertSimulatable({
     module: input.module,
     coefficients: input.coefficients,
     irradiance: input.irradiance.source,

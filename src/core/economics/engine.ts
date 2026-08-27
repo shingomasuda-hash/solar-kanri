@@ -1,4 +1,4 @@
-import { assertProductionReady } from '../solar/sourced';
+import { assertSimulatable } from '../solar/sourced';
 import {
   ECONOMICS_ENGINE_VERSION,
   type EconomicsInput,
@@ -27,7 +27,7 @@ import {
  */
 export function calculateEconomics(input: EconomicsInput): EconomicsResult {
   validate(input);
-  assertProductionReady({
+  assertSimulatable({
     tariff: input.tariff,
     consumption: input.consumption.selfConsumptionRatio,
     opex: input.cost.annualOpexJpy,
