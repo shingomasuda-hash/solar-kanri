@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login, uniqueName } from './helpers';
+import { login, selectPanel, uniqueName } from './helpers';
 
 /**
  * Admin console, and the behaviour it exists to enable: an operator with no
@@ -152,7 +152,7 @@ test.describe('admin console', () => {
     await page.getByLabel('屋根勾配').selectOption({ label: '4寸（21.8°）' });
     await page.getByRole('button', { name: '屋根面を保存' }).click();
 
-    await page.getByLabel('パネル型番').selectOption({ index: 0 });
+    await selectPanel(page);
     await page.getByRole('button', { name: '自動配置を実行' }).click();
     await page.locator('[data-testid^="layout-"]').first().waitFor({ timeout: 30_000 });
 

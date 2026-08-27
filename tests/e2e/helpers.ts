@@ -39,6 +39,30 @@ export function uniqueSuffix(): string {
  * themselves: coefficients are global master data, so relying on seed state
  * makes a test order-dependent and it will pass alone and fail in a suite.
  */
+/**
+ * Pick the generic SAMPLE module.
+ *
+ * Explicitly, rather than by index: the panel catalogue is shared master data,
+ * and the demo catalogue adds entries that sort ahead of it. A spec that picked
+ * index 0 would silently start testing a different module — and, worse, one
+ * whose figures are demonstration data, which would then refuse to be quoted.
+ */
+export async function selectPanel(page: Page, match: RegExp = /SAMPLE/): Promise<void> {
+  const select = page.getByLabel('パネル型番');
+  // The panel step only renders once a roof face exists, and its options are
+  // fetched with it. Reading the labels without waiting sees an empty list.
+  // `attached`, not visible: an <option> is never "visible" to Playwright.
+  await select.locator('option').first().waitFor({ state: 'attached', timeout: 15_000 });
+  const labels = await select.locator('option').allTextContents();
+  const wanted = labels.find((text) => match.test(text));
+  if (!wanted) {
+    throw new Error(
+      `No panel matching ${match} in the catalogue. Options: ${labels.join(' | ') || '(none)'}`,
+    );
+  }
+  await select.selectOption({ label: wanted });
+}
+
 export async function setCoefficientSource(
   page: Page,
   key: string,
@@ -46,7 +70,9 @@ export async function setCoefficientSource(
   citation = 'E2E TEST DATA — synthetic value, not a real-world figure',
 ): Promise<void> {
   await page.goto('/admin/coefficients');
-  const row = page.getByTestId(`coefficient-${key}`);
+  // Scope to the set the simulator actually uses. Once a demo set exists there
+  // is more than one row per key on this page.
+  const row = page.getByTestId('coefficient-set-default').getByTestId(`coefficient-${key}`);
   await row.getByRole('button', { name: '編集' }).click();
   await row.locator('select[name="sourceKind"]').selectOption(sourceKind);
   await row.locator('input[name="sourceCitation"]').fill(citation);

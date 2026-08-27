@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login, setCoefficientSource, uniqueName } from './helpers';
+import { login, selectPanel, setCoefficientSource, uniqueName } from './helpers';
 
 /**
  * The design pipeline: position → roof outline → exclusion → auto layout →
@@ -96,7 +96,7 @@ test.describe('design pipeline', () => {
     expect(surface / projected).toBeCloseTo(1 / Math.cos((21.8 * Math.PI) / 180), 3);
 
     // --- auto layout ------------------------------------------------------
-    await page.getByLabel('パネル型番').selectOption({ index: 0 });
+    await selectPanel(page);
     await page.getByRole('button', { name: '自動配置を実行' }).click();
     await expect(page.getByTestId('layout-result')).toBeVisible({ timeout: 30_000 });
     const summary = await page.getByTestId('layout-result').textContent();
@@ -123,7 +123,7 @@ test.describe('design pipeline', () => {
     await page.getByRole('button', { name: '屋根面を保存' }).click();
     await expect(page.getByRole('button', { name: '屋根面1', exact: true })).toBeVisible();
 
-    await page.getByLabel('パネル型番').selectOption({ index: 0 });
+    await selectPanel(page);
     await page.getByRole('button', { name: '自動配置を実行' }).click();
     // Read the count off the SERVER-rendered badge, not the transient banner:
     // the banner is client state and could still be showing the previous run.
@@ -139,7 +139,7 @@ test.describe('design pipeline', () => {
     await expect(page.locator('[data-testid^="layout-"]')).toHaveCount(0);
     await expect(page.getByTestId('layout-result')).toHaveCount(0);
 
-    await page.getByLabel('パネル型番').selectOption({ index: 0 });
+    await selectPanel(page);
     await page.getByRole('button', { name: '自動配置を実行' }).click();
     const badgeAfter = page.locator('[data-testid^="layout-"]').first();
     await badgeAfter.waitFor({ timeout: 30_000 });
@@ -166,7 +166,7 @@ test.describe('design pipeline', () => {
 
     await expect(page.getByText('勾配が未設定です。水平面として計算されます。')).toBeVisible();
 
-    await page.getByLabel('パネル型番').selectOption({ index: 0 });
+    await selectPanel(page);
     await page.getByRole('button', { name: '自動配置を実行' }).click();
     await expect(page.getByTestId('layout-result')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/PITCH_UNKNOWN/)).toBeVisible();
@@ -203,7 +203,7 @@ async function runRefusalScenario(page: Page): Promise<void> {
   await page.getByLabel('屋根の外周（GeoJSON Polygon）').fill(JSON.stringify(ROOF_OUTLINE));
   await page.getByLabel('屋根勾配').selectOption({ label: '4寸（21.8°）' });
   await page.getByRole('button', { name: '屋根面を保存' }).click();
-  await page.getByLabel('パネル型番').selectOption({ index: 0 });
+  await selectPanel(page);
   await page.getByRole('button', { name: '自動配置を実行' }).click();
   await expect(page.getByTestId('layout-result')).toBeVisible({ timeout: 30_000 });
 
