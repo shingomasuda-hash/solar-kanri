@@ -39,13 +39,64 @@ export async function listCoefficientSets(user: SessionUser) {
   });
 }
 
+/**
+ * Choose which coefficient set the simulator uses when none is named.
+ *
+ * This is how an operator leaves demonstration mode, so it has to exist in the
+ * console: the alternative is editing the database by hand, which the project
+ * rules forbid for good reason. Exactly one set is default at any time, which
+ * is why both writes are in one transaction — a moment with two defaults would
+ * make `findFirst({ isDefault: true })` return an arbitrary one.
+ */
+export async function setDefaultCoefficientSet(user: SessionUser, id: string) {
+  requirePermission(user, 'coefficient:write');
+  const set = await prisma.coefficientSet.findUnique({ where: { id } });
+  if (!set) throw new Error('係数セットが見つかりません / Coefficient set not found');
+
+  await prisma.$transaction([
+    prisma.coefficientSet.updateMany({ where: { isDefault: true }, data: { isDefault: false } }),
+    prisma.coefficientSet.update({ where: { id }, data: { isDefault: true } }),
+  ]);
+  await recordAudit({
+    userId: user.id,
+    action: 'coefficientSet.setDefault',
+    entityType: 'CoefficientSet',
+    entityId: id,
+    detail: { key: set.key, name: set.name },
+  });
+  return set;
+}
+
+/** The same, for electricity prices. See {@link setDefaultCoefficientSet}. */
+export async function setDefaultTariff(user: SessionUser, id: string) {
+  requirePermission(user, 'master:write');
+  const tariff = await prisma.tariff.findUnique({ where: { id } });
+  if (!tariff) throw new Error('単価が見つかりません / Tariff not found');
+
+  await prisma.$transaction([
+    prisma.tariff.updateMany({ where: { isDefault: true }, data: { isDefault: false } }),
+    prisma.tariff.update({ where: { id }, data: { isDefault: true } }),
+  ]);
+  await recordAudit({
+    userId: user.id,
+    action: 'tariff.setDefault',
+    entityType: 'Tariff',
+    entityId: id,
+    detail: { key: tariff.key, name: tariff.name },
+  });
+  return tariff;
+}
+
 export async function updateCoefficient(user: SessionUser, id: string, input: unknown) {
   requirePermission(user, 'coefficient:write');
   const data = coefficientSchema.parse(input);
   const before = await prisma.coefficient.findUnique({ where: { id } });
   if (!before) throw new Error('係数が見つかりません / Coefficient not found');
 
-  const verified = data.sourceKind !== 'UNVERIFIED_PLACEHOLDER';
+  // A demonstration figure has been supplied but not verified by anyone, so it
+  // must not receive a verification stamp.
+  const verified =
+    data.sourceKind !== 'UNVERIFIED_PLACEHOLDER' && data.sourceKind !== 'DEMO_APPROXIMATION';
   const after = await prisma.coefficient.update({
     where: { id },
     data: {
@@ -84,16 +135,31 @@ export async function countUnverified(): Promise<{
   tariffs: number;
   panels: number;
   irradiance: number;
+  /** True when the set the simulator would actually use is demonstration data. */
+  demoActive: boolean;
 }> {
-  const [coefficients, tariffs, panels, irradiance] = await Promise.all([
-    prisma.coefficient.count({ where: { sourceKind: 'UNVERIFIED_PLACEHOLDER' } }),
-    prisma.tariff.count({ where: { sourceKind: 'UNVERIFIED_PLACEHOLDER', isActive: true } }),
-    prisma.panelModel.count({ where: { verifiedAt: null, isActive: true } }),
-    prisma.irradianceStation.count({
-      where: { sourceKind: 'UNVERIFIED_PLACEHOLDER', isActive: true },
-    }),
-  ]);
-  return { coefficients, tariffs, panels, irradiance };
+  const [coefficients, tariffs, panels, irradiance, demoCoefficients, demoTariff] =
+    await Promise.all([
+      prisma.coefficient.count({ where: { sourceKind: 'UNVERIFIED_PLACEHOLDER' } }),
+      prisma.tariff.count({ where: { sourceKind: 'UNVERIFIED_PLACEHOLDER', isActive: true } }),
+      prisma.panelModel.count({ where: { verifiedAt: null, isDemo: false, isActive: true } }),
+      prisma.irradianceStation.count({
+        where: { sourceKind: 'UNVERIFIED_PLACEHOLDER', isActive: true },
+      }),
+      // Only the default set matters: a demo set nobody uses is harmless, and
+      // reporting it would train operators to ignore the warning.
+      prisma.coefficient.count({
+        where: { sourceKind: 'DEMO_APPROXIMATION', set: { isDefault: true } },
+      }),
+      prisma.tariff.count({ where: { sourceKind: 'DEMO_APPROXIMATION', isDefault: true } }),
+    ]);
+  return {
+    coefficients,
+    tariffs,
+    panels,
+    irradiance,
+    demoActive: demoCoefficients > 0 || demoTariff > 0,
+  };
 }
 
 // ----------------------------------------------------------------- tariffs
@@ -106,7 +172,10 @@ export async function listTariffs(user: SessionUser) {
 export async function upsertTariff(user: SessionUser, input: unknown, id?: string) {
   requirePermission(user, 'master:write');
   const data = tariffSchema.parse(input);
-  const verified = data.sourceKind !== 'UNVERIFIED_PLACEHOLDER';
+  // A demonstration figure has been supplied but not verified by anyone, so it
+  // must not receive a verification stamp.
+  const verified =
+    data.sourceKind !== 'UNVERIFIED_PLACEHOLDER' && data.sourceKind !== 'DEMO_APPROXIMATION';
 
   const values = {
     key: data.key,
@@ -252,7 +321,8 @@ export async function upsertIrradianceStation(
   const errors = validateManualClimate(climate);
   if (errors.length > 0) throw new Error(errors.join(' / '));
 
-  const verified = input.sourceKind !== 'UNVERIFIED_PLACEHOLDER';
+  const verified =
+    input.sourceKind !== 'UNVERIFIED_PLACEHOLDER' && input.sourceKind !== 'DEMO_APPROXIMATION';
   const values = {
     label: input.label,
     latitude: input.latitude,

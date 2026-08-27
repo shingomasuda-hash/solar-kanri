@@ -8,6 +8,8 @@ import { prisma } from '@/server/db/client';
 import { recordAudit } from '@/server/services/audit';
 import { requirePermission } from '@/server/auth/rbac';
 import {
+  setDefaultCoefficientSet,
+  setDefaultTariff,
   setPanelActive,
   setUserActive,
   updateCoefficient,
@@ -53,6 +55,36 @@ export async function updateCoefficientAction(
   }
   revalidatePath('/admin/coefficients');
   revalidatePath('/admin');
+  return {};
+}
+
+export async function setDefaultCoefficientSetAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    await setDefaultCoefficientSet(user, String(formData.get('id') ?? ''));
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath('/admin/coefficients');
+  revalidatePath('/admin/health');
+  return {};
+}
+
+export async function setDefaultTariffAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    await setDefaultTariff(user, String(formData.get('id') ?? ''));
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath('/admin/tariffs');
+  revalidatePath('/admin/health');
   return {};
 }
 

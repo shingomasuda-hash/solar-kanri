@@ -4,6 +4,7 @@ import { can } from '@/server/auth/rbac';
 import { listCoefficientSets } from '@/server/services/admin';
 import { Alert, Card, CardTitle, PageHeader } from '@/components/ui';
 import { CoefficientRow } from './coefficient-row';
+import { DefaultSetButton } from './default-set-button';
 
 export const metadata = { title: '係数の管理' };
 
@@ -32,12 +33,24 @@ export default async function CoefficientsPage() {
       </Alert>
 
       {sets.map((set) => (
-        <Card key={set.id} className="mt-5">
-          <CardTitle>
+        <Card key={set.id} className="mt-5" data-testid={`coefficient-set-${set.key}`}>
+          <CardTitle
+            action={
+              editable && !set.isDefault ? <DefaultSetButton id={set.id} name={set.name} /> : null
+            }
+          >
             {set.name}
             {set.isDefault && (
-              <span className="ml-2 rounded bg-[var(--surface-muted)] px-1.5 py-0.5 text-xs">
+              <span
+                className="ml-2 rounded bg-[var(--surface-muted)] px-1.5 py-0.5 text-xs"
+                data-testid={`default-set-${set.key}`}
+              >
                 既定
+              </span>
+            )}
+            {set.values.some((c) => c.sourceKind === 'DEMO_APPROXIMATION') && (
+              <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs text-amber-700 dark:text-amber-300">
+                デモ用・提示不可
               </span>
             )}
           </CardTitle>

@@ -177,6 +177,23 @@ async function checkCalculationReadiness(): Promise<ComponentHealth> {
   const unverified = await countUnverified();
   const total =
     unverified.coefficients + unverified.tariffs + unverified.panels + unverified.irradiance;
+  // Demo mode is reported before the count, and as 'degraded' rather than
+  // 'down': the platform works, which is the whole point, but a green light
+  // here would say the figures are ready to quote, and they are not.
+  if (unverified.demoActive) {
+    return {
+      component: 'calculation',
+      label: '計算エンジン（係数の出典）',
+      state: 'degraded',
+      message:
+        'デモ用の概算データが既定になっています。シミュレーションは動作しますが、' +
+        'すべて参考値として表示され、見積は発行できません。',
+      action:
+        '管理画面 → 係数・単価 で実データのセットを既定に切り替えてください' +
+        '（docs/setup/panel-catalogue.md）。',
+    };
+  }
+
   if (total === 0) {
     return {
       component: 'calculation',

@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Alert, Badge, Button, Card, CardTitle, Field, Input, Select } from '@/components/ui';
-import { upsertTariffAction, type FormState } from '../actions';
+import { setDefaultTariffAction, upsertTariffAction, type FormState } from '../actions';
 import { SOURCE_KINDS } from '../coefficients/coefficient-row';
 
 export interface TariffView {
@@ -34,6 +34,10 @@ function Save({ label }: { label: string }) {
 export function TariffEditor({ tariffs, canWrite }: { tariffs: TariffView[]; canWrite: boolean }) {
   const [editing, setEditing] = useState<TariffView | null>(tariffs[0] ?? null);
   const [state, action] = useActionState<FormState, FormData>(upsertTariffAction, {});
+  const [defaultState, setDefault] = useActionState<FormState, FormData>(
+    setDefaultTariffAction,
+    {},
+  );
 
   return (
     <div className="flex flex-col gap-5">
@@ -54,6 +58,9 @@ export function TariffEditor({ tariffs, canWrite }: { tariffs: TariffView[]; can
               {t.sourceKind === 'UNVERIFIED_PLACEHOLDER' && (
                 <Badge className="ml-2 bg-red-500/10 text-red-700">出典未確認</Badge>
               )}
+              {t.sourceKind === 'DEMO_APPROXIMATION' && (
+                <Badge className="ml-2 bg-amber-500/15 text-amber-700">デモ用・提示不可</Badge>
+              )}
             </button>
           </li>
         ))}
@@ -65,6 +72,16 @@ export function TariffEditor({ tariffs, canWrite }: { tariffs: TariffView[]; can
           </li>
         )}
       </ul>
+
+      {canWrite && editing && !editing.isDefault && (
+        <form action={setDefault} className="flex items-center gap-3">
+          <input type="hidden" name="id" value={editing.id} />
+          <Button type="submit" variant="secondary" className="text-xs">
+            「{editing.name}」を既定にする
+          </Button>
+          {defaultState.error && <Alert tone="danger">{defaultState.error}</Alert>}
+        </form>
+      )}
 
       {canWrite && (
         <Card>

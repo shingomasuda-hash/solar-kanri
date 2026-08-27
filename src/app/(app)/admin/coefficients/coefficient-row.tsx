@@ -11,6 +11,10 @@ export const SOURCE_KINDS = [
   { value: 'PUBLIC_DATASET', label: '公的データセット' },
   { value: 'PROVIDER_API', label: '外部API' },
   { value: 'ADMINISTRATOR_INPUT', label: '管理者による決定' },
+  // Listed so an existing demo value survives a round trip through this form.
+  // Saving one deliberately makes no sense, but silently rewriting its kind
+  // because the option was missing would be worse.
+  { value: 'DEMO_APPROXIMATION', label: 'デモ用の概算（提示不可）' },
   { value: 'UNVERIFIED_PLACEHOLDER', label: '未確認（プレースホルダ）' },
 ] as const;
 
