@@ -400,7 +400,12 @@ export async function resolveSiteIrradiance(query: {
     })),
   );
 
-  const order = (process.env.SOLAR_PROVIDER_ORDER ?? 'manual,pvgis')
+  // `||`, not `??`: a variable registered with an empty value is not a
+  // configuration. With `??` an empty SOLAR_PROVIDER_ORDER produced an empty
+  // provider list, so nothing was attempted and the failure said "could not
+  // fetch irradiance (attempted: )" — pointing the operator at their data
+  // rather than at the setting. Seen on a live deployment.
+  const order = (process.env.SOLAR_PROVIDER_ORDER || 'manual,pvgis')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
@@ -411,12 +416,21 @@ export async function resolveSiteIrradiance(query: {
   };
   const providers = order.map((id) => available[id]).filter((p): p is SolarDataProvider => !!p);
 
+  if (providers.length === 0) {
+    // A different failure from "no data here", and it needs a different fix.
+    throw new Error(
+      '日射量プロバイダが1つも有効になっていません。環境変数 SOLAR_PROVIDER_ORDER を確認してください' +
+        `（現在の設定: "${process.env.SOLAR_PROVIDER_ORDER ?? '(未設定)'}", ` +
+        `有効な値: ${Object.keys(available).join(', ')}）。`,
+    );
+  }
+
   const { dataset, attempts } = await resolveIrradiance(providers, query);
   if (!dataset) {
     throw new Error(
       'この地点の日射量データを取得できませんでした。' +
         '管理画面で日射量データを登録するか、外部プロバイダの設定を確認してください。' +
-        `（試行: ${attempts.map((a) => `${a.providerId}=${a.outcome}`).join(', ')}）`,
+        `（試行: ${attempts.map((a) => `${a.providerId}=${a.outcome}`).join(', ') || 'なし'}）`,
     );
   }
   return dataset;

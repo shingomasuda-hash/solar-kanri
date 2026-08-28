@@ -2,6 +2,7 @@ import { prisma } from '../db/client';
 import { requirePermission } from '../auth/rbac';
 import type { SessionUser } from '../auth/session';
 import { recordAudit } from './audit';
+import { PvgisProvider, type SolarDataProvider } from '@core/solar/providers';
 import {
   coefficientSchema,
   panelModelSchema,
@@ -473,5 +474,96 @@ export async function listAuditLog(user: SessionUser, take = 100) {
     include: { user: { select: { name: true, email: true } } },
     orderBy: { createdAt: 'desc' },
     take: Math.min(take, 500),
+  });
+}
+
+// ------------------------------------------------- irradiance from a provider
+
+/**
+ * Fetch a site's monthly irradiation and temperature from PVGIS and store it
+ * as an irradiance station.
+ *
+ * This is what "pull the data in" means here. PVGIS is a free service of the
+ * European Commission's Joint Research Centre, needs no key, and covers Japan
+ * through its global reanalysis database. Nothing about it is invented by this
+ * application: the numbers are whatever the service returned, stored verbatim
+ * with the request that produced them.
+ *
+ * Stored rather than fetched per simulation for two reasons. A saved
+ * simulation must stay reproducible, and an external service that changes its
+ * answer next year would quietly rewrite quotations issued today. And a
+ * station an administrator can see is one they can check, correct, or replace
+ * with a national dataset — which is the intended destination.
+ *
+ * The provenance is PROVIDER_API, not a placeholder and not a demonstration
+ * figure: it is a real measurement chain, from a named service, captured at a
+ * known moment. It therefore does not block issuing. Whether PVGIS's
+ * reanalysis is accurate enough for Japanese sites is a judgement for the
+ * administrator, and the note on the record says so.
+ */
+export async function importIrradianceFromProvider(
+  user: SessionUser,
+  input: {
+    readonly label: string;
+    readonly latitude: number;
+    readonly longitude: number;
+    readonly tiltDeg?: number;
+    readonly azimuthDeg?: number;
+  },
+  options: { readonly provider?: SolarDataProvider } = {},
+) {
+  requirePermission(user, 'master:write');
+
+  const provider =
+    options.provider ?? new PvgisProvider({ enabled: process.env.PVGIS_ENABLED !== 'false' });
+
+  if (!provider.isAvailable()) {
+    throw new Error(
+      'PVGIS が無効になっています。環境変数 PVGIS_ENABLED を確認してください。' +
+        '（無効のままにする場合は、日射量を手入力で登録してください）',
+    );
+  }
+
+  // Horizontal by default: a station is reused across roof faces with
+  // different tilts, so storing a plane-of-array figure for one of them would
+  // be wrong for all the others.
+  const tiltDeg = input.tiltDeg ?? 0;
+  const azimuthDeg = input.azimuthDeg ?? 180;
+
+  const dataset = await provider.fetch({
+    latitude: input.latitude,
+    longitude: input.longitude,
+    tiltDeg,
+    azimuthDeg,
+  });
+  if (!dataset) {
+    throw new Error(
+      `PVGIS からこの地点のデータを取得できませんでした（${input.latitude}, ${input.longitude}）。` +
+        '座標を確認するか、日射量を手入力で登録してください。',
+    );
+  }
+
+  const monthly = (record: Record<number, number>) =>
+    Array.from({ length: 12 }, (_, i) => record[i + 1] ?? 0);
+
+  // The station table has no free-text note, so the caveat travels in the
+  // citation — where anyone reading the figure will see it.
+  const citation =
+    `PVGIS (EC Joint Research Centre) — ${dataset.source.source.citation}. ` +
+    `取得 ${new Date().toISOString().slice(0, 10)} / 地点 ${input.latitude}, ${input.longitude} / ` +
+    '再解析データのため、日本国内では NEDO METPV 等と突き合わせて確認してください。';
+
+  return upsertIrradianceStation(user, {
+    label: input.label,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    monthlyIrradiation: monthly(dataset.climate.planeOfArrayKWhPerM2PerDay),
+    monthlyAmbientTemp: monthly(dataset.climate.ambientTempC),
+    isPlaneOfArray: dataset.isPlaneOfArray,
+    tiltDeg,
+    azimuthDeg,
+    sourceKind: 'PROVIDER_API',
+    sourceCitation: citation.slice(0, 500),
+    sourceUrl: dataset.source.source.url ?? null,
   });
 }

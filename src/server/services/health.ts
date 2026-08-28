@@ -81,7 +81,7 @@ function checkGoogleMaps(): ComponentHealth {
 }
 
 async function checkGeocoding(): Promise<ComponentHealth> {
-  const key = process.env.GOOGLE_GEOCODING_API_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const key = process.env.GOOGLE_GEOCODING_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   if (!key) {
     return {
       component: 'geocoding',
@@ -149,7 +149,7 @@ async function checkSolarProvider(): Promise<ComponentHealth> {
 }
 
 function checkAiProvider(): ComponentHealth {
-  const provider = process.env.AI_PROVIDER ?? 'anthropic';
+  const provider = process.env.AI_PROVIDER || 'anthropic';
   const key = provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY;
   if (!key) {
     return {

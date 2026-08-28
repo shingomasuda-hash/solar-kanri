@@ -38,7 +38,7 @@ export function IrradianceEditor({
   const [state, action] = useActionState<FormState, FormData>(upsertIrradianceAction, {});
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5" data-testid="irradiance-editor">
       {stations.length > 0 && (
         <Card className="overflow-x-auto p-0">
           <table className="w-full min-w-[720px] text-sm">

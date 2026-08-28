@@ -96,16 +96,19 @@ test.describe('admin console', () => {
 
     // --- 3. supply irradiance data ---------------------------------------
     await page.goto('/admin/irradiance');
-    await page.getByLabel('観測点名').fill(uniqueName('テスト観測点'));
-    await page.getByLabel('緯度').fill('35.6812');
-    await page.getByLabel('経度').fill('139.767');
-    await page.getByLabel('月別日射量 (kWh/m²/日)').fill(TEST_IRRADIATION);
-    await page.getByLabel('月別平均気温 (℃)').fill(TEST_TEMPERATURE);
-    await page.locator('select[name="sourceKind"]').selectOption('ADMINISTRATOR_INPUT');
-    await page
+    // Scoped: the page also carries the PVGIS import form, which has its own
+    // 緯度 / 経度 — correctly, since those are the right words in both.
+    const manualEntry = page.getByTestId('irradiance-editor');
+    await manualEntry.getByLabel('観測点名').fill(uniqueName('テスト観測点'));
+    await manualEntry.getByLabel('緯度').fill('35.6812');
+    await manualEntry.getByLabel('経度').fill('139.767');
+    await manualEntry.getByLabel('月別日射量 (kWh/m²/日)').fill(TEST_IRRADIATION);
+    await manualEntry.getByLabel('月別平均気温 (℃)').fill(TEST_TEMPERATURE);
+    await manualEntry.locator('select[name="sourceKind"]').selectOption('ADMINISTRATOR_INPUT');
+    await manualEntry
       .locator('input[name="sourceCitation"]')
       .fill('E2E TEST DATA — synthetic climate series, not NEDO or PVGIS data');
-    await page.getByRole('button', { name: '登録する' }).click();
+    await manualEntry.getByRole('button', { name: '登録する' }).click();
     await expect(page.getByRole('cell', { name: /テスト観測点/ }).first()).toBeVisible({
       timeout: 15_000,
     });

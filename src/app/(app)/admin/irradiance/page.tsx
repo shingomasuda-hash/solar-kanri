@@ -4,6 +4,7 @@ import { can } from '@/server/auth/rbac';
 import { listIrradianceStations } from '@/server/services/admin';
 import { Alert, PageHeader } from '@/components/ui';
 import { IrradianceEditor } from './irradiance-editor';
+import { ImportFromPvgis } from './import-from-pvgis';
 
 export const metadata = { title: '日射量データ' };
 
@@ -23,6 +24,7 @@ export default async function IrradiancePage() {
         で割ってください。物理的にありえない大きさの値は保存時に拒否されます。
       </Alert>
       <div className="mt-5">
+        {can(user, 'master:write') && <ImportFromPvgis />}
         <IrradianceEditor
           canWrite={can(user, 'master:write')}
           stations={stations.map((s) => ({

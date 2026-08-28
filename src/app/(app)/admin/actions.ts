@@ -8,6 +8,7 @@ import { prisma } from '@/server/db/client';
 import { recordAudit } from '@/server/services/audit';
 import { requirePermission } from '@/server/auth/rbac';
 import {
+  importIrradianceFromProvider,
   setDefaultCoefficientSet,
   setDefaultTariff,
   setPanelActive,
@@ -55,6 +56,25 @@ export async function updateCoefficientAction(
   }
   revalidatePath('/admin/coefficients');
   revalidatePath('/admin');
+  return {};
+}
+
+export async function importIrradianceAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    await importIrradianceFromProvider(user, {
+      label: String(formData.get('label') ?? '').trim(),
+      latitude: num(formData.get('latitude')),
+      longitude: num(formData.get('longitude')),
+    });
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath('/admin/irradiance');
+  revalidatePath('/admin/health');
   return {};
 }
 

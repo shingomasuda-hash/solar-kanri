@@ -32,7 +32,7 @@ const MAX_KNOWLEDGE_RESULTS = 5;
 const MAX_DOCUMENT_CHARS = 4000;
 
 export function resolveAiProvider(): AiProvider {
-  const configured = process.env.AI_PROVIDER ?? 'anthropic';
+  const configured = process.env.AI_PROVIDER || 'anthropic';
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (configured === 'anthropic' && apiKey) {
     return new AnthropicProvider({ apiKey, model: process.env.AI_MODEL });
