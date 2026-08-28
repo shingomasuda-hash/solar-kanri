@@ -5,7 +5,7 @@ import { can } from '@/server/auth/rbac';
 import { getProject } from '@/server/services/projects';
 import { listPanelModels } from '@/server/services/design';
 import { prisma } from '@/server/db/client';
-import { isGeocodingConfigured } from '@/server/services/geocoding';
+import { geocodingKeySource } from '@/server/services/geocoding';
 import { Alert, LinkButton, PageHeader } from '@/components/ui';
 import { DesignWorkspace } from './design-workspace';
 
@@ -69,7 +69,7 @@ export default async function DesignPage({ params }: { params: Promise<{ id: str
         canSimulate={can(user, 'simulation:run')}
         mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
         mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || null}
-        geocodingConfigured={isGeocodingConfigured()}
+        geocodingKeySource={geocodingKeySource()}
         defaultAddress={defaultAddress}
         position={
           property.latitude != null && property.longitude != null

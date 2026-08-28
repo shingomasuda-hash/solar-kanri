@@ -88,7 +88,7 @@ export interface DesignWorkspaceProps {
   canSimulate: boolean;
   mapsApiKey: string | null;
   mapId: string | null;
-  geocodingConfigured: boolean;
+  geocodingKeySource: 'dedicated' | 'browser-key-fallback' | 'none';
   defaultAddress: string;
   position: { lat: number; lng: number } | null;
   roofFaces: RoofFaceView[];
@@ -203,13 +203,27 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
       <div className="flex min-w-0 flex-col gap-5">
         <Card>
           <CardTitle>1. 住所から位置を確定</CardTitle>
-          {!props.geocodingConfigured && (
+          {props.geocodingKeySource === 'none' && (
             <Alert tone="warning" title="住所検索が未設定です">
               Geocoding API キーが未設定のため、住所検索は使えません。下の「緯度・経度を直接入力」
               から位置を設定できます。手順は <code>docs/setup/google-maps.md</code> にあります。
             </Alert>
           )}
-          {props.geocodingConfigured && (
+          {props.geocodingKeySource === 'browser-key-fallback' && (
+            <Alert tone="warning" title="ブラウザ用のキーで代用しています">
+              <p>
+                <code>GOOGLE_GEOCODING_API_KEY</code> が空のため、地図用のキーで住所検索を
+                実行します。そのキーにリファラー制限がかかっていると、サーバーからの リクエストは
+                Google に拒否されます（リファラーが付かないため）。
+              </p>
+              <p className="mt-1">
+                サーバー用のキーを別に発行し、
+                <code className="mx-1">GOOGLE_GEOCODING_API_KEY</code>
+                に設定してください。手順は <code>docs/setup/google-maps.md</code> にあります。
+              </p>
+            </Alert>
+          )}
+          {props.geocodingKeySource !== 'none' && (
             <form action={geocode} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="projectId" value={projectId} />
               <input type="hidden" name="propertyId" value={propertyId} />

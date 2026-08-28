@@ -52,6 +52,13 @@ The geocoding key never needs to be, so it should not be.
 
 ### Server key — `GOOGLE_GEOCODING_API_KEY`
 
+Two keys, not one. A browser key is referrer-restricted, and a request made
+from the server carries no referrer, so Google rejects it. If
+`GOOGLE_GEOCODING_API_KEY` is empty the application falls back to the browser
+key — convenient locally with one unrestricted key, wrong in production — and
+the design screen says so rather than leaving you to decode Google's error
+about referrers.
+
 1. Create a second key, named `solar-kanri-server`.
 2. **Application restrictions → IP addresses**, and add your server's egress IP.
 3. **API restrictions → Restrict key →** Geocoding API (and Solar API if used).

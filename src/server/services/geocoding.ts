@@ -127,9 +127,29 @@ export function parseGeocodeResponse(payload: unknown): GeocodeResult[] {
   return out;
 }
 
+/**
+ * Which key geocoding will actually use.
+ *
+ * The distinction matters more than it looks. A browser key is normally
+ * referrer-restricted, and a request from the server carries no referrer, so
+ * Google rejects it. Falling back to that key makes the app *look* configured
+ * and then fail with Google's own wording about referrers — which sends the
+ * operator hunting through Maps settings rather than at the empty variable
+ * that actually caused it. This happened on a live deployment.
+ *
+ * The fallback stays, because during local development one unrestricted key
+ * for everything is genuinely convenient. What changes is that the UI can now
+ * say which case it is in.
+ */
+export type GeocodingKeySource = 'dedicated' | 'browser-key-fallback' | 'none';
+
+export function geocodingKeySource(): GeocodingKeySource {
+  if (process.env.GOOGLE_GEOCODING_API_KEY) return 'dedicated';
+  if (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) return 'browser-key-fallback';
+  return 'none';
+}
+
 /** True when a key is configured, so the UI can show setup guidance instead of an error. */
 export function isGeocodingConfigured(): boolean {
-  return Boolean(
-    process.env.GOOGLE_GEOCODING_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-  );
+  return geocodingKeySource() !== 'none';
 }
