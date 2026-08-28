@@ -101,8 +101,15 @@ export async function runSimulation(user: SessionUser, request: SimulationReques
   // fabricated figure.
   const uniqueModules = new Set(layouts.map((l) => l.panelModelId));
   if (uniqueModules.size > 1) {
+    // Name the offenders. "Multiple models are selected" leaves the operator
+    // to work out which roof face is the odd one out by clicking through them.
+    const byFace = layouts
+      .map((l) => `${l.roofFace.label}: ${l.panelModel.manufacturer} ${l.panelModel.model}`)
+      .join(' / ');
     throw new Error(
-      '複数の異なるパネル型番が選択されています。1回のシミュレーションでは同一型番のみ対応しています。',
+      '複数の異なるパネル型番が配置されています。1回のシミュレーションでは同一型番のみ対応しています。' +
+        `現在の配置は ${byFace} です。` +
+        'そろえたい型番を選び直して「自動配置を実行」すると、その屋根面の配置が置き換わります。',
     );
   }
   const panel = layouts[0]!.panelModel;

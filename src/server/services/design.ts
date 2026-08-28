@@ -12,6 +12,8 @@ import {
 } from '@core/layout';
 import {
   buildRoofGeometry,
+  deserialisePlacements,
+  geometryFromStored,
   placementsToGeoJSON,
   serialisePlacements,
   type RoofGeometry,
@@ -322,6 +324,26 @@ function placementsRegionToGeoJSON(
     type: 'Polygon',
     coordinates: [ringToCoords(poly.outer), ...poly.holes.map(ringToCoords)],
   };
+}
+
+/**
+ * Redraw a saved layout as panel outlines in WGS84.
+ *
+ * The stored form keeps the frame origin and the roof plane alongside the
+ * placements precisely so this can be done without re-running the engine, and
+ * the result is identical to what the operator saw when they placed them.
+ *
+ * Returns an empty array rather than throwing on a row it cannot read: a
+ * layout saved by an older version should cost the operator its picture, not
+ * the whole design screen.
+ */
+export function storedLayoutPolygons(placements: unknown): unknown[] {
+  try {
+    const stored = deserialisePlacements(placements);
+    return placementsToGeoJSON(stored.placements, geometryFromStored(stored));
+  } catch {
+    return [];
+  }
 }
 
 export async function listPanelModels() {

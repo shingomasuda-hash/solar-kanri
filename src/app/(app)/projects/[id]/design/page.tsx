@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/server/auth/service';
 import { can } from '@/server/auth/rbac';
 import { getProject } from '@/server/services/projects';
-import { listPanelModels } from '@/server/services/design';
+import { listPanelModels, storedLayoutPolygons } from '@/server/services/design';
 import { prisma } from '@/server/db/client';
 import { geocodingKeySource } from '@/server/services/geocoding';
 import { Alert, LinkButton, PageHeader } from '@/components/ui';
@@ -105,6 +105,9 @@ export default async function DesignPage({ params }: { params: Promise<{ id: str
           orientation: l.orientation,
           angleDeg: l.angleDeg,
           usableAreaM2: l.usableAreaM2,
+          // Redrawn from the saved placements so the panels are still on the
+          // roof after a reload, not only in the moment they were computed.
+          panelPolygons: storedLayoutPolygons(l.placements) as never,
         }))}
         panels={panels.map((p) => ({
           id: p.id,

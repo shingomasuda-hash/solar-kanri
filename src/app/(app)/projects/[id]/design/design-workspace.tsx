@@ -80,6 +80,7 @@ export interface LayoutView {
   orientation: string | null;
   angleDeg: number;
   usableAreaM2: number;
+  panelPolygons: GeoJSONPolygonLike[];
 }
 
 export interface DesignWorkspaceProps {
@@ -188,8 +189,16 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
         out.push({ id: z.id, kind: 'exclusion', polygon: z.outline, label: z.label ?? undefined });
       }
     }
+    // The panels themselves. Where a module actually lands is the thing an
+    // operator is judging on a customer's roof — a count in a sidebar cannot
+    // show that a row is going to sit awkwardly across a ridge.
+    for (const layout of layouts) {
+      layout.panelPolygons.forEach((polygon, i) => {
+        out.push({ id: `${layout.id}-p${i}`, kind: 'panel', polygon });
+      });
+    }
     return out;
-  }, [roofFaces]);
+  }, [roofFaces, layouts]);
 
   // Editing a roof or an exclusion deletes the layouts computed from it. The
   // transient success banner must go with them: leaving "36 枚" on screen after
@@ -614,6 +623,10 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                         <Badge className="bg-emerald-500/10 text-emerald-700">
                           {layout.panelCount} 枚 / {(layout.installedW / 1000).toFixed(2)} kW
                         </Badge>
+                        {/* Which module, on the face itself. A simulation
+                            refuses when two faces use different ones, and
+                            without this the operator cannot see which is which. */}
+                        <span className="ml-2 text-[var(--text-muted)]">{layout.panelLabel}</span>
                       </p>
                     )}
                   </li>
