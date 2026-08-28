@@ -2,6 +2,7 @@ import { prisma } from '../db/client';
 import { requirePermission } from '../auth/rbac';
 import type { SessionUser } from '../auth/session';
 import { countUnverified } from './admin';
+import { EXPECTED_MIGRATIONS } from '@/generated/migrations';
 
 /**
  * System self-diagnostics for the admin console (project brief rule 31).
@@ -215,6 +216,51 @@ async function checkCalculationReadiness(): Promise<ComponentHealth> {
   };
 }
 
+/**
+ * Are the database's migrations up to date with this build?
+ *
+ * Migrations do not run themselves on deploy, and forgetting the step surfaces
+ * much later as a foreign-key error at the moment an operator clicks something
+ * — twice now. This makes the gap visible where an administrator looks for it.
+ */
+async function checkMigrations(): Promise<ComponentHealth> {
+  const label = 'データベースのマイグレーション';
+  try {
+    const rows = await prisma.$queryRaw<{ migration_name: string }[]>`
+      SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL
+    `;
+    const applied = new Set(rows.map((r) => r.migration_name));
+    const missing = EXPECTED_MIGRATIONS.filter((name) => !applied.has(name));
+
+    if (missing.length === 0) {
+      return {
+        component: 'migrations',
+        label,
+        state: 'ok',
+        message: `${EXPECTED_MIGRATIONS.length} 件すべて適用済みです。`,
+      };
+    }
+    return {
+      component: 'migrations',
+      label,
+      state: 'down',
+      message:
+        `未適用のマイグレーションが ${missing.length} 件あります: ${missing.join(', ')}。` +
+        'この状態では、画面によっては保存や削除が外部キー制約のエラーで失敗します。',
+      action:
+        '`npm run db:deploy` を本番の接続先に対して実行してください（docs/setup/deployment.md）。',
+    };
+  } catch (err) {
+    return {
+      component: 'migrations',
+      label,
+      state: 'degraded',
+      message: `適用状況を確認できませんでした: ${err instanceof Error ? err.message : String(err)}`,
+      action: 'データベース接続を確認してください。',
+    };
+  }
+}
+
 async function checkStorage(): Promise<ComponentHealth> {
   const files = await prisma.fileAsset.count();
   return {
@@ -231,6 +277,7 @@ export async function runHealthChecks(user: SessionUser): Promise<ComponentHealt
   // Run concurrently; a slow external probe must not delay the whole page.
   const results = await Promise.all([
     checkDatabase(),
+    checkMigrations(),
     Promise.resolve(checkGoogleMaps()),
     checkGeocoding(),
     checkSolarProvider(),

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && tsx scripts/generate-migration-manifest.ts && next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -25,6 +25,7 @@
     "test:regression": "vitest run tests/regression",
     "test:e2e": "npm run build && playwright test",
     "db:generate": "prisma generate",
+    "db:manifest": "tsx scripts/generate-migration-manifest.ts",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",

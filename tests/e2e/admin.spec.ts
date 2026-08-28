@@ -61,6 +61,10 @@ test.describe('admin console', () => {
       'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY',
     );
     await expect(page.getByTestId('health-ai-provider')).toContainText('未設定');
+    // Forgetting to run migrations on a deployment surfaced twice as a raw
+    // foreign-key error at the moment an operator clicked something. It has to
+    // be visible where an administrator looks for it.
+    await expect(page.getByTestId('health-migrations')).toContainText('適用済み');
   });
 
   test('an unverified coefficient is flagged and blocks calculation', async ({ page }) => {

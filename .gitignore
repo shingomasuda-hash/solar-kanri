@@ -18,4 +18,8 @@ blob-report/
 .playwright/
 /tmp/
 /generated/
+# The Prisma client above is generated and not committed. This one is: it is a
+# handful of strings the build regenerates, and committing it keeps a fresh
+# checkout typechecking before anyone has run a build.
+!src/generated/
 .gate.lock/
