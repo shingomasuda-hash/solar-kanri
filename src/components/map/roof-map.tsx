@@ -61,6 +61,10 @@ export function RoofMap(props: RoofMapProps) {
   const overlaysRef = useRef<google.maps.Polygon[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Drawing can fail while the map itself is perfectly usable. Reporting that
+  // as a dead map overstates the damage and hides the fact that the operator
+  // can still pan, zoom and paste coordinates.
+  const [drawError, setDrawError] = useState<string | null>(null);
 
   // Callbacks are kept in a ref so the map effect can depend only on the API
   // key: re-creating the map because a parent re-rendered would throw away the
@@ -107,9 +111,24 @@ export function RoofMap(props: RoofMapProps) {
           }
         });
 
-        drawRef.current = await setupTerraDraw(map, (polygon) => {
-          callbacksRef.current.onPolygonDrawn?.(polygon);
-        });
+        // Terra Draw's Google adapter attaches its pointer listeners to the
+        // map's rendered DOM, and that DOM does not exist until the map has
+        // painted once. Starting it straight after `new Map(...)` is a race:
+        // it wins on a warm cache and loses on a cold one, failing with
+        // "Cannot read properties of null (reading 'addEventListener')" and
+        // leaving the operator with a map they cannot draw on. Wait for the
+        // first idle.
+        try {
+          await whenFirstIdle(map);
+          if (cancelled) return;
+          drawRef.current = await setupTerraDraw(map, (polygon) => {
+            callbacksRef.current.onPolygonDrawn?.(polygon);
+          });
+        } catch (drawErr) {
+          if (cancelled) return;
+          console.error('[map] drawing unavailable', drawErr);
+          setDrawError(drawErr instanceof Error ? drawErr.message : String(drawErr));
+        }
 
         if (!cancelled) setStatus('ready');
       } catch (err) {
@@ -232,6 +251,20 @@ export function RoofMap(props: RoofMapProps) {
           </Alert>
         </div>
       )}
+      {status === 'ready' && drawError && (
+        <div className="absolute inset-x-2 top-2" data-testid="map-draw-unavailable">
+          <Alert tone="warning" title="作図機能を開始できませんでした">
+            <p>
+              地図の表示・移動は使えますが、この画面では図形を描けません。
+              ページを再読み込みすると復旧することがあります。
+            </p>
+            <p className="mt-1">
+              復旧しない場合は、屋根の外周欄に GeoJSON
+              の座標を直接貼り付けてください。配置とシミュレーションはそのまま動きます。
+            </p>
+          </Alert>
+        </div>
+      )}
     </div>
   );
 }
@@ -282,6 +315,26 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
  * Wire up Terra Draw against the Google Maps adapter. Imported dynamically so
  * pages that never draw do not pay for the bundle.
  */
+/**
+ * Resolve once the map has finished its first render.
+ *
+ * The timeout is a deliberate fallback rather than a failure: if `idle` never
+ * arrives we try to set up drawing anyway, because a map that renders but
+ * cannot be drawn on is worse than one that throws a diagnosable error.
+ */
+function whenFirstIdle(map: google.maps.Map, timeoutMs = 10_000): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    google.maps.event.addListenerOnce(map, 'idle', done);
+    setTimeout(done, timeoutMs);
+  });
+}
+
 async function setupTerraDraw(
   map: google.maps.Map,
   onFinished: (polygon: GeoJSONPolygonLike) => void,
