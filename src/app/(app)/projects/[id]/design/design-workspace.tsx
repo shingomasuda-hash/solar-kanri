@@ -21,6 +21,7 @@ import {
   type GeoJSONPolygonLike,
   type MapFeature,
 } from '@/components/map/roof-map';
+import { drawTargetFor } from '@/components/map/draw-target';
 import {
   computeLayoutAction,
   deleteExclusionAction,
@@ -142,7 +143,11 @@ function Submitting({ label, busy }: { label: string; busy: string }) {
 export function DesignWorkspace(props: DesignWorkspaceProps) {
   const { projectId, propertyId, canWrite, roofFaces, layouts, panels } = props;
   const [mode, setMode] = useState<DrawMode>('none');
-  const [drawnPolygon, setDrawnPolygon] = useState<string>('');
+  // One buffer per drawing target. A single shared one sent every polygon to
+  // the roof field, which made it impossible to draw an exclusion zone at all:
+  // the operator drew a skylight and watched the roof outline change instead.
+  const [drawnRoof, setDrawnRoof] = useState<string>('');
+  const [drawnExclusion, setDrawnExclusion] = useState<string>('');
   const [selectedFaceId, setSelectedFaceId] = useState<string | null>(roofFaces[0]?.id ?? null);
 
   const [geocodeState, geocode] = useActionState(geocodeAction, {} as FormState);
@@ -398,7 +403,13 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
             center={props.position}
             mode={mode}
             features={features}
-            onPolygonDrawn={(polygon) => setDrawnPolygon(JSON.stringify(polygon))}
+            onPolygonDrawn={(polygon) => {
+              const target = drawTargetFor(mode);
+              if (!target) return;
+              const json = JSON.stringify(polygon);
+              if (target === 'exclusion') setDrawnExclusion(json);
+              else setDrawnRoof(json);
+            }}
             onFeatureSelected={(id) => setSelectedFaceId(id)}
           />
         </Card>
@@ -431,8 +442,8 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                   name="outline"
                   rows={4}
                   required
-                  value={drawnPolygon}
-                  onChange={(e) => setDrawnPolygon(e.target.value)}
+                  value={drawnRoof}
+                  onChange={(e) => setDrawnRoof(e.target.value)}
                   placeholder='{"type":"Polygon","coordinates":[[[139.767,35.681],...]]}'
                   className="font-mono text-xs"
                 />
@@ -617,7 +628,13 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
 
         {canWrite && selectedFace && (
           <Card>
-            <CardTitle>4. 禁止区域を追加</CardTitle>
+            <CardTitle>4. 禁止区域を追加（任意）</CardTitle>
+            <p className="mb-3 text-sm text-[var(--text-muted)]">
+              天窓や障害物があれば登録します。
+              <strong>
+                なければこの手順は飛ばして、下の「5. パネルを自動配置」に進んでください。
+              </strong>
+            </p>
             <form action={saveExclusion} className="flex flex-col gap-3">
               <input type="hidden" name="projectId" value={projectId} />
               <input type="hidden" name="roofFaceId" value={selectedFace.id} />
@@ -649,6 +666,9 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                   name="outline"
                   rows={3}
                   required
+                  value={drawnExclusion}
+                  onChange={(e) => setDrawnExclusion(e.target.value)}
+                  placeholder="地図で「禁止区域を描く」を押して作図すると自動で入ります"
                   className="font-mono text-xs"
                 />
               </Field>

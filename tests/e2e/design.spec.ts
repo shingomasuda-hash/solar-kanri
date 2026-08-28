@@ -134,6 +134,12 @@ test.describe('design pipeline', () => {
 
     // Add a skylight. Saving it invalidates the layout, so the badge must go.
     await page.getByLabel('禁止区域の外周（GeoJSON Polygon）').fill(JSON.stringify(SKYLIGHT));
+    // The two outline fields must stay independent. They shared one buffer
+    // once, which sent every drawn polygon to the roof field and made drawing
+    // an exclusion zone impossible.
+    await expect(page.getByLabel('屋根の外周（GeoJSON Polygon）')).toHaveValue(
+      JSON.stringify(ROOF_OUTLINE),
+    );
     await page.getByRole('button', { name: '禁止区域を保存' }).click();
     await expect(page.getByRole('button', { name: '天窓 を削除' })).toBeVisible();
     await expect(page.locator('[data-testid^="layout-"]')).toHaveCount(0);
