@@ -567,3 +567,86 @@ export async function importIrradianceFromProvider(
     sourceUrl: dataset.source.source.url ?? null,
   });
 }
+
+// -------------------------------------------------- adopting provisional values
+
+export interface AdoptDemoValuesResult {
+  readonly coefficients: number;
+  readonly tariffs: number;
+  readonly panels: number;
+}
+
+/**
+ * Adopt the demonstration figures as this company's own provisional values.
+ *
+ * This is the one deliberate door through the demo barrier, and it is worth
+ * being precise about what it does and does not change.
+ *
+ * It does **not** make the numbers more accurate. They are the same figures
+ * they were a moment ago. What changes is who owns them: `ADMINISTRATOR_INPUT`
+ * means a named person entered this value and stands behind it, which is a
+ * real thing an administrator can decide and a demonstration figure — traceable
+ * to nothing and to nobody — is not. That is why a citation is required rather
+ * than optional, why it is stamped with the caller's identity and the date, and
+ * why every row is written to the audit log.
+ *
+ * The intended use is a demonstration to a prospect, where the flow has to run
+ * to the end. Quotations issued afterwards are ordinary quotations, so the
+ * citation the administrator supplies is the only thing that will later tell
+ * anyone these were provisional. Ask for a real one.
+ */
+export async function adoptDemoValuesAsProvisional(
+  user: SessionUser,
+  input: { readonly citation: string },
+): Promise<AdoptDemoValuesResult> {
+  requirePermission(user, 'coefficient:write');
+  requirePermission(user, 'master:write');
+
+  const citation = input.citation.trim();
+  if (citation.length < 10) {
+    throw new Error(
+      '出典・根拠を10文字以上で入力してください。' +
+        '「誰がいつ何を根拠に決めたか」が、この値について後から分かる唯一の手がかりになります。',
+    );
+  }
+
+  const stamp = { verifiedAt: new Date(), verifiedBy: user.email, sourceCitation: citation };
+
+  const [coefficients, tariffs, panels] = await prisma.$transaction([
+    prisma.coefficient.updateMany({
+      where: { sourceKind: 'DEMO_APPROXIMATION' },
+      data: { sourceKind: 'ADMINISTRATOR_INPUT', ...stamp },
+    }),
+    prisma.tariff.updateMany({
+      where: { sourceKind: 'DEMO_APPROXIMATION' },
+      data: { sourceKind: 'ADMINISTRATOR_INPUT', ...stamp },
+    }),
+    // A module is a datasheet source only once a human has checked it against
+    // the datasheet, which nobody has. Clearing isDemo and stamping the check
+    // records that an administrator accepted the electrical figures as they
+    // stand — the same claim, at the same strength, as the coefficients above.
+    prisma.panelModel.updateMany({
+      where: { isDemo: true },
+      data: { isDemo: false, ...stamp },
+    }),
+  ]);
+
+  await recordAudit({
+    userId: user.id,
+    action: 'demoValues.adopt',
+    entityType: 'CoefficientSet',
+    entityId: 'demo',
+    detail: {
+      citation,
+      coefficients: coefficients.count,
+      tariffs: tariffs.count,
+      panels: panels.count,
+    },
+  });
+
+  return {
+    coefficients: coefficients.count,
+    tariffs: tariffs.count,
+    panels: panels.count,
+  };
+}

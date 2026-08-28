@@ -19,7 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "vitest run tests/integration --no-file-parallelism",
     "test:geometry": "vitest run tests/regression/geometry",
     "test:solar": "vitest run tests/regression/solar",
     "test:regression": "vitest run tests/regression",

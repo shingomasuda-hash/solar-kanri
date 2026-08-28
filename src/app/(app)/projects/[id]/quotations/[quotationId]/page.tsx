@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/server/auth/service';
 import { can } from '@/server/auth/rbac';
 import { getQuotation } from '@/server/services/quotations';
+import { getSettings } from '@/server/services/settings';
 import {
   Alert,
   Badge,
@@ -58,6 +59,8 @@ export default async function QuotationDetailPage({
 
   const status = STATUS_LABELS[quotation.status] ?? { label: quotation.status, color: '#64748b' };
   const snapshot = (quotation.simulationSnapshot ?? {}) as SimulationSnapshot;
+  const settings = await getSettings();
+  const costRatio = settings['quotation.costRatio'];
   const netCost = quotation.totalJpy - quotation.subsidyJpy;
 
   return (
@@ -194,6 +197,36 @@ export default async function QuotationDetailPage({
               )}
             </dl>
           </Card>
+
+          {can(user, 'quotation:write') && (
+            <Card data-testid="margin-internal">
+              <CardTitle>原価・粗利（社内用）</CardTitle>
+              <div className="grid grid-cols-3 gap-2">
+                <Stat
+                  label="原価"
+                  value={jpy.format(Math.round(quotation.subtotalJpy * costRatio))}
+                  unit="円"
+                  hint={`原価率 ${Math.round(costRatio * 100)}%`}
+                />
+                <Stat
+                  label="粗利"
+                  value={jpy.format(Math.round(quotation.subtotalJpy * (1 - costRatio)))}
+                  unit="円"
+                />
+                <Stat
+                  label="粗利率"
+                  value={(100 - costRatio * 100).toFixed(0)}
+                  unit="%"
+                  hint="値引き前"
+                />
+              </div>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                この欄は社内向けで、印刷用の見積書には出力されません。原価率は 管理 → システム設定
+                の <code>quotation.costRatio</code> で変更できます。
+                値引きはそのまま粗利から差し引かれます。
+              </p>
+            </Card>
+          )}
 
           {snapshot.installedW !== undefined && (
             <Card>

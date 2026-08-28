@@ -72,13 +72,13 @@ jobs:
       # Named separately so a skipped integration suite is visible in the
       # summary rather than hidden inside a larger green step.
       - name: Integration tests
-        run: npx vitest run tests/integration
+        run: npm run test:integration
 
       - name: Production build
         run: npm run build
 
       - name: Demo fixtures (loaded, not activated)
-        run: DEMO_ACTIVATE=0 npm run db:seed:demo
+        run: DEMO_ACTIVATE=0 DEMO_RESET=1 npm run db:seed:demo
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

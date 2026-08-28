@@ -42,14 +42,20 @@ step "typecheck"  npx tsc --noEmit
 step "unit + regression tests" npx vitest run tests/unit tests/regression
 # Named separately so the Definition of Done checklist can be read straight off
 # the output. These need a migrated database; they skip, loudly, without one.
-step "integration tests" npx vitest run tests/integration
+# Serially: these share one database, so they are not independent, and
+# running the files in parallel produced collisions that read as product
+# bugs (a duplicate project code, a suite finding demo data mid-conversion).
+step "integration tests" npm run test:integration
 step "production build" npm run build
 
 if [ "${SKIP_E2E:-0}" != "1" ]; then
   # Load the demo catalogue without activating it. The demo spec switches to it
   # through the admin console and switches back, so every other spec keeps
   # running against the ordinary seed.
-  step "demo fixtures" env DEMO_ACTIVATE=0 npm run db:seed:demo
+  # DEMO_RESET so the browser suite finds a demonstration catalogue whatever an
+  # earlier step did to it — the adopt-demo-values suite deliberately converts
+  # one, and the gate must not depend on the order its steps ran in.
+  step "demo fixtures" env DEMO_ACTIVATE=0 DEMO_RESET=1 npm run db:seed:demo
   step "browser (E2E)" npx playwright test
 else
   echo ""

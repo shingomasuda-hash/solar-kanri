@@ -5,6 +5,7 @@ import { listCoefficientSets } from '@/server/services/admin';
 import { Alert, Card, CardTitle, PageHeader } from '@/components/ui';
 import { CoefficientRow } from './coefficient-row';
 import { DefaultSetButton } from './default-set-button';
+import { AdoptDemoValues } from './adopt-demo-values';
 
 export const metadata = { title: '係数の管理' };
 
@@ -31,6 +32,18 @@ export default async function CoefficientsPage() {
           シミュレーションは実行されません。これは仕様であり、不具合ではありません。
         </p>
       </Alert>
+
+      {editable && (
+        <div className="mt-5">
+          <AdoptDemoValues
+            demoCount={sets.reduce(
+              (n, set) =>
+                n + set.values.filter((c) => c.sourceKind === 'DEMO_APPROXIMATION').length,
+              0,
+            )}
+          />
+        </div>
+      )}
 
       {sets.map((set) => (
         <Card key={set.id} className="mt-5" data-testid={`coefficient-set-${set.key}`}>

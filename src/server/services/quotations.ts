@@ -3,6 +3,7 @@ import { ForbiddenError, ownershipFilter, requirePermission } from '../auth/rbac
 import type { SessionUser } from '../auth/session';
 import { recordAudit } from './audit';
 import { quotationSchema } from '../validation/schemas';
+import { getSettings } from './settings';
 import { calculateQuotation, suggestLineItems, type QuotationLineInput } from '@core/quotation';
 
 /**
@@ -298,18 +299,38 @@ export async function draftFromSimulation(user: SessionUser, projectId: string) 
   const layout = simulation.layouts[0]?.layout;
   if (!layout) return null;
 
+  const settings = await getSettings();
+  const installedKw = simulation.installedW / 1000;
+
+  // A draft used to arrive with every line at zero, and the operator was
+  // expected to notice. They did not: a zero total makes payback read as
+  // immediate and IRR as infinite, so the most flattering figures the model can
+  // produce were the default. Starting from a configured price per kW is both
+  // more useful and more honest — it is visibly a starting point to edit.
+  //
+  // The split across the four lines is a conventional shape for a Japanese
+  // residential system, not a costing. Every figure is editable, and the
+  // administrator sets the price per kW.
+  const total = Math.round(installedKw * settings['quotation.defaultPricePerKwJpy']);
+  const panelCount = Math.max(simulation.panelCount, 1);
+  const panelUnitPriceJpy = Math.round((total * 0.45) / panelCount);
+  const mountingUnitPriceJpyPerKw = Math.round((total * 0.15) / Math.max(installedKw, 0.01));
+  const constructionJpy = Math.round(total * 0.28);
+  const electricalJpy = Math.round(total * 0.12);
+
   return {
     simulationId: simulation.id,
-    installedKw: simulation.installedW / 1000,
+    installedKw,
     panelCount: simulation.panelCount,
     items: suggestLineItems({
       panelLabel: `${layout.panelModel.manufacturer} ${layout.panelModel.model}`,
       panelCount: simulation.panelCount,
-      panelUnitPriceJpy: 0,
-      installedKw: simulation.installedW / 1000,
-      constructionJpy: 0,
-      electricalJpy: 0,
-    }).map((item) => ({ ...item, unitPriceJpy: 0 })),
+      panelUnitPriceJpy,
+      installedKw,
+      mountingUnitPriceJpyPerKw,
+      constructionJpy,
+      electricalJpy,
+    }),
   };
 }
 

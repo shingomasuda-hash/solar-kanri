@@ -68,8 +68,10 @@ test.describe('admin console', () => {
     await page.goto('/admin/health');
     const calc = page.getByTestId('health-calculation');
     const text = await calc.textContent();
-    // Either state is legitimate depending on test order; both must be honest.
-    expect(text).toMatch(/出典未確認|すべての係数に出典が登録されています/);
+    // Three legitimate states depending on test order — unsourced, demo data
+    // active, or fully sourced. Each must say which one it is; none may show
+    // green while the figures are not ready to quote.
+    expect(text).toMatch(/出典未確認|デモ用の概算データ|すべての係数に出典が登録されています/);
   });
 
   test('an administrator can source every coefficient and unblock simulation', async ({ page }) => {

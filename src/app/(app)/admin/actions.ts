@@ -8,6 +8,7 @@ import { prisma } from '@/server/db/client';
 import { recordAudit } from '@/server/services/audit';
 import { requirePermission } from '@/server/auth/rbac';
 import {
+  adoptDemoValuesAsProvisional,
   importIrradianceFromProvider,
   setDefaultCoefficientSet,
   setDefaultTariff,
@@ -56,6 +57,25 @@ export async function updateCoefficientAction(
   }
   revalidatePath('/admin/coefficients');
   revalidatePath('/admin');
+  return {};
+}
+
+export async function adoptDemoValuesAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    const user = await requireUser();
+    await adoptDemoValuesAsProvisional(user, {
+      citation: String(formData.get('citation') ?? ''),
+    });
+  } catch (err) {
+    return toFormState(err);
+  }
+  revalidatePath('/admin/coefficients');
+  revalidatePath('/admin/tariffs');
+  revalidatePath('/admin/panels');
+  revalidatePath('/admin/health');
   return {};
 }
 

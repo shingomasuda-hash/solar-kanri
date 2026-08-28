@@ -40,6 +40,17 @@ const prisma = new PrismaClient({
  */
 const ACTIVATE = process.env.DEMO_ACTIVATE !== '0';
 
+/**
+ * Force the demo rows back to DEMO_APPROXIMATION.
+ *
+ * Adopting the demo values as a company's own is deliberate and one-way from
+ * the operator's point of view, so the ordinary seed never undoes it. The test
+ * suite needs the opposite: whatever an earlier suite did, the browser tests
+ * must find a demonstration catalogue. `DEMO_RESET=1` makes the fixtures
+ * idempotent so the gate does not depend on the order its steps ran in.
+ */
+const RESET = process.env.DEMO_RESET === '1';
+
 const DEMO = {
   sourceKind: 'DEMO_APPROXIMATION',
   sourceCitation:
@@ -260,12 +271,88 @@ async function seedDemoIrradiance(): Promise<void> {
   console.log(`  demo irradiance stations: ${DEMO_STATIONS.length}`);
 }
 
+/**
+ * Provisional business figures, so a drafted quotation has a total and the
+ * payback period is computable. These are settings, not coefficients: they are
+ * an administrator's to decide and they are not traceable to a datasheet, which
+ * is exactly why they live in system settings rather than the coefficient set.
+ */
+const DEMO_SETTINGS = [
+  {
+    key: 'quotation.defaultPricePerKwJpy',
+    value: 250_000,
+    label: '見積の既定単価（円/kW・暫定）',
+  },
+  { key: 'quotation.costRatio', value: 0.3, label: '原価率（暫定）' },
+];
+
+async function seedDemoSettings(): Promise<void> {
+  for (const s of DEMO_SETTINGS) {
+    await prisma.systemSetting.upsert({
+      where: { key: s.key },
+      // Never overwrite: an administrator may have set a real figure.
+      update: {},
+      create: { key: s.key, value: s.value as never, label: s.label },
+    });
+  }
+  console.log(`  demo settings: ${DEMO_SETTINGS.length}`);
+}
+
+async function resetDemoProvenance(): Promise<void> {
+  const [coefficients, tariffs, panels] = await prisma.$transaction([
+    prisma.coefficient.updateMany({
+      where: { set: { key: 'demo' } },
+      data: { ...DEMO, verifiedAt: null, verifiedBy: null },
+    }),
+    prisma.tariff.updateMany({
+      where: { key: 'demo' },
+      data: { ...DEMO, verifiedAt: null, verifiedBy: null },
+    }),
+    prisma.panelModel.updateMany({
+      where: { datasheetVersion: 'demo-1' },
+      data: {
+        isDemo: true,
+        verifiedAt: null,
+        verifiedBy: null,
+        sourceCitation: DEMO_PANEL_CITATION,
+      },
+    }),
+  ]);
+  console.log(
+    `  reset to DEMO: ${coefficients.count} coefficients, ${tariffs.count} tariffs, ` +
+      `${panels.count} panels`,
+  );
+
+  // Reset means reset. Leaving the demo set as the default is exactly the state
+  // that made the health check disagree with a suite that had just sourced
+  // every coefficient — and no other step could repair it.
+  const [ordinarySet, ordinaryTariff] = await Promise.all([
+    prisma.coefficientSet.findUnique({ where: { key: 'default' } }),
+    prisma.tariff.findUnique({ where: { key: 'default' } }),
+  ]);
+  if (ordinarySet) {
+    await prisma.$transaction([
+      prisma.coefficientSet.updateMany({ where: { isDefault: true }, data: { isDefault: false } }),
+      prisma.coefficientSet.update({ where: { id: ordinarySet.id }, data: { isDefault: true } }),
+    ]);
+  }
+  if (ordinaryTariff) {
+    await prisma.$transaction([
+      prisma.tariff.updateMany({ where: { isDefault: true }, data: { isDefault: false } }),
+      prisma.tariff.update({ where: { id: ordinaryTariff.id }, data: { isDefault: true } }),
+    ]);
+  }
+  console.log('  defaults restored to the ordinary set and tariff');
+}
+
 async function main(): Promise<void> {
-  console.log(`Seeding DEMO data... (activate: ${ACTIVATE})`);
+  console.log(`Seeding DEMO data... (activate: ${ACTIVATE}, reset: ${RESET})`);
   await seedDemoPanels();
   await seedDemoCoefficients();
   await seedDemoTariff();
   await seedDemoIrradiance();
+  await seedDemoSettings();
+  if (RESET) await resetDemoProvenance();
   if (!ACTIVATE) {
     console.log('\nLoaded without activating. Switch to it in 管理 → 係数 / 単価.');
     return;
