@@ -147,6 +147,12 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
   // One buffer per drawing target. A single shared one sent every polygon to
   // the roof field, which made it impossible to draw an exclusion zone at all:
   // the operator drew a skylight and watched the roof outline change instead.
+  // React 19 resets an uncontrolled form after a server action completes, so
+  // the layout form forgot the operator's panel choice and fell back to the
+  // first option — SAMPLE — every single run. Holding the selection in state
+  // is what makes it survive the submit.
+  const [layoutFaceId, setLayoutFaceId] = useState<string>('');
+  const [layoutPanelId, setLayoutPanelId] = useState<string>('');
   const [drawnRoof, setDrawnRoof] = useState<string>('');
   const [drawnExclusion, setDrawnExclusion] = useState<string>('');
   const [selectedFaceId, setSelectedFaceId] = useState<string | null>(roofFaces[0]?.id ?? null);
@@ -710,7 +716,8 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                   <Select
                     id="layoutFace"
                     name="roofFaceId"
-                    defaultValue={selectedFace?.id}
+                    value={layoutFaceId || (selectedFace?.id ?? '')}
+                    onChange={(e) => setLayoutFaceId(e.target.value)}
                     required
                   >
                     {roofFaces.map((f) => (
@@ -720,8 +727,19 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                     ))}
                   </Select>
                 </Field>
-                <Field label="パネル型番" htmlFor="panelModelId" required>
-                  <Select id="panelModelId" name="panelModelId" required>
+                <Field
+                  label="パネル型番"
+                  htmlFor="panelModelId"
+                  required
+                  hint="同じ屋根面に再実行すると、前の配置を置き換えます。シミュレーションは全屋根面で同一型番が必要です。"
+                >
+                  <Select
+                    id="panelModelId"
+                    name="panelModelId"
+                    value={layoutPanelId || (panels[0]?.id ?? '')}
+                    onChange={(e) => setLayoutPanelId(e.target.value)}
+                    required
+                  >
                     {panels.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.label}
@@ -778,7 +796,11 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                   <option value="ground-mounted">地上設置</option>
                 </Select>
               </Field>
-              <Field label="年間消費電力量 (kWh)" htmlFor="annualConsumptionKWh">
+              <Field
+                label="年間消費電力量 (kWh)"
+                htmlFor="annualConsumptionKWh"
+                hint="お客様の検針票や電力会社のマイページから、直近12か月の合計を入力してください。自家消費できる割合の計算に使います。"
+              >
                 <Input
                   id="annualConsumptionKWh"
                   name="annualConsumptionKWh"
@@ -787,7 +809,11 @@ export function DesignWorkspace(props: DesignWorkspaceProps) {
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="システム総額 (円)" htmlFor="totalCostJpy">
+                <Field
+                  label="システム総額 (円)"
+                  htmlFor="totalCostJpy"
+                  hint="0 のままでは投資回収年数を算出できません"
+                >
                   <Input
                     id="totalCostJpy"
                     name="totalCostJpy"

@@ -266,3 +266,28 @@ describe('economics: determinism and versioning', () => {
     expect(calculateEconomics(input()).algorithmVersion).toBe('economics-engine-v1');
   });
 });
+
+describe('economics: an unentered cost', () => {
+  /**
+   * Zero is a legitimate *net* investment when a subsidy covers the system.
+   * A zero *gross* cost on a system with panels on it is something else: the
+   * price has not been typed in yet. Payback then reads as immediate and IRR
+   * as infinite — the most flattering pair of numbers the model can produce,
+   * arrived at by omission. It has to be called out.
+   */
+  it('warns when the system cost is zero', () => {
+    const r = calculateEconomics({
+      ...input(),
+      cost: { ...input().cost, totalCostJpy: 0, subsidyJpy: 0 },
+    });
+    expect(r.warnings.join(' ')).toContain('COST_NOT_ENTERED');
+  });
+
+  it('does not warn once a cost is entered, even a subsidised one', () => {
+    const r = calculateEconomics({
+      ...input(),
+      cost: { ...input().cost, totalCostJpy: 1_500_000, subsidyJpy: 1_500_000 },
+    });
+    expect(r.warnings.join(' ')).not.toContain('COST_NOT_ENTERED');
+  });
+});

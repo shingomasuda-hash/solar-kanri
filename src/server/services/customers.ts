@@ -2,6 +2,7 @@ import { prisma } from '../db/client';
 import { ForbiddenError, requirePermission, ownershipFilter, type Permission } from '../auth/rbac';
 import type { SessionUser } from '../auth/session';
 import { recordAudit } from './audit';
+import { withUniqueCode } from './codes';
 import { customerSchema, type CustomerInput } from '../validation/schemas';
 
 /**
@@ -92,28 +93,30 @@ export async function createCustomer(user: SessionUser, input: CustomerInput) {
   requirePermission(user, 'customer:write');
   const data = nullifyBlank(customerSchema.parse(input));
 
-  const customer = await prisma.$transaction(async (tx) => {
-    return tx.customer.create({
-      data: {
-        code: await nextCustomerCode(tx as unknown as typeof prisma),
-        type: data.type,
-        name: data.name,
-        nameKana: data.nameKana ?? null,
-        companyName: data.companyName ?? null,
-        email: data.email ?? null,
-        phone: data.phone ?? null,
-        postalCode: data.postalCode ?? null,
-        prefecture: data.prefecture ?? null,
-        city: data.city ?? null,
-        addressLine: data.addressLine ?? null,
-        source: data.source ?? null,
-        notes: data.notes ?? null,
-        // Default the owner to whoever created the record, so nothing is
-        // unassigned by accident.
-        ownerId: data.ownerId ?? user.id,
-      },
-    });
-  });
+  const customer = await withUniqueCode(() =>
+    prisma.$transaction(async (tx) =>
+      tx.customer.create({
+        data: {
+          code: await nextCustomerCode(tx as unknown as typeof prisma),
+          type: data.type,
+          name: data.name,
+          nameKana: data.nameKana ?? null,
+          companyName: data.companyName ?? null,
+          email: data.email ?? null,
+          phone: data.phone ?? null,
+          postalCode: data.postalCode ?? null,
+          prefecture: data.prefecture ?? null,
+          city: data.city ?? null,
+          addressLine: data.addressLine ?? null,
+          source: data.source ?? null,
+          notes: data.notes ?? null,
+          // Default the owner to whoever created the record, so nothing is
+          // unassigned by accident.
+          ownerId: data.ownerId ?? user.id,
+        },
+      }),
+    ),
+  );
 
   await recordAudit({
     userId: user.id,

@@ -36,6 +36,17 @@ export function calculateEconomics(input: EconomicsInput): EconomicsResult {
 
   const warnings: string[] = [];
   const netInvestmentJpy = input.cost.totalCostJpy - input.cost.subsidyJpy;
+
+  if (input.cost.totalCostJpy <= 0) {
+    // Zero is a legitimate net investment when a subsidy covers the system, but
+    // a zero *gross* cost on a system with panels on it means nobody typed the
+    // price yet. Payback and IRR then read as "immediate" and "infinite", which
+    // are the most flattering numbers the model can produce.
+    warnings.push(
+      'COST_NOT_ENTERED: システム総額が0円です。投資回収年数と内部収益率は意味を持ちません。' +
+        '見積の金額を入力してから再計算してください。',
+    );
+  }
   if (netInvestmentJpy < 0) {
     warnings.push(
       'SUBSIDY_EXCEEDS_COST: the subsidy is larger than the system cost. ' +
