@@ -518,11 +518,23 @@ model Simulation {
 }
 
 /// Join table: a simulation can cover several roof faces.
+/// Which layouts a simulation was run from.
+///
+/// `Cascade`, not `Restrict`. Restrict froze the roof: once a simulation
+/// existed, its roof face could not be edited, deleted, or given an exclusion
+/// zone, because every one of those invalidates the layout and the layout could
+/// not be removed. The operator saw a raw foreign-key error.
+///
+/// Reproducibility does not depend on this row. A simulation stores the engine
+/// versions and the complete input snapshot — module, coefficients, tariff,
+/// irradiance and the layouts themselves — precisely so that later edits to the
+/// masters cannot rewrite it. This table is a convenience link to the live
+/// layout, and losing it when the layout goes costs the link, not the record.
 model SimulationLayout {
   simulationId String
   simulation   Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
   layoutId     String
-  layout       Layout     @relation(fields: [layoutId], references: [id], onDelete: Restrict)
+  layout       Layout     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
 
   @@id([simulationId, layoutId])
 }

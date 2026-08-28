@@ -287,6 +287,12 @@ export async function setQuotationStatus(
  * at zero: the engine must never invent one, and an operator entering them is
  * exactly the business decision the brief reserves for humans.
  */
+/** The part of a saved input snapshot this needs; the rest is not its business. */
+interface SnapshotModule {
+  readonly manufacturer?: string;
+  readonly model?: string;
+}
+
 export async function draftFromSimulation(user: SessionUser, projectId: string) {
   requirePermission(user, 'quotation:write');
   const simulation = await prisma.simulation.findFirst({
@@ -296,8 +302,19 @@ export async function draftFromSimulation(user: SessionUser, projectId: string) 
   });
   if (!simulation) return null;
 
+  // Prefer the live layout, fall back to the snapshot. Editing a roof face
+  // after a simulation removes the layout it was computed from — deliberately,
+  // since that layout no longer describes any roof — but the simulation and its
+  // figures are still perfectly good to quote from, and the snapshot carries
+  // the module it used.
   const layout = simulation.layouts[0]?.layout;
-  if (!layout) return null;
+  const snapshotModule = (simulation.inputSnapshot as { module?: SnapshotModule } | null)?.module;
+  const panelLabel = layout
+    ? `${layout.panelModel.manufacturer} ${layout.panelModel.model}`
+    : snapshotModule
+      ? `${snapshotModule.manufacturer} ${snapshotModule.model}`
+      : null;
+  if (!panelLabel) return null;
 
   const settings = await getSettings();
   const installedKw = simulation.installedW / 1000;
@@ -323,7 +340,7 @@ export async function draftFromSimulation(user: SessionUser, projectId: string) 
     installedKw,
     panelCount: simulation.panelCount,
     items: suggestLineItems({
-      panelLabel: `${layout.panelModel.manufacturer} ${layout.panelModel.model}`,
+      panelLabel,
       panelCount: simulation.panelCount,
       panelUnitPriceJpy,
       installedKw,
