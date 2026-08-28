@@ -350,7 +350,6 @@ export async function askCopilot(
     system,
     messages,
     tools: COPILOT_TOOLS,
-    maxTokens: 2048,
   });
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -392,7 +391,7 @@ export async function askCopilot(
       : messages;
 
     response = await provider.continueWithToolResults(
-      { system, messages: augmented, tools: COPILOT_TOOLS, maxTokens: 2048 },
+      { system, messages: augmented, tools: COPILOT_TOOLS },
       response.toolCalls,
       results,
     );
@@ -401,6 +400,17 @@ export async function askCopilot(
   if (response.stopReason === 'tool_use') {
     context.warnings.push(
       '情報の取得が上限に達したため、回答が不完全な可能性があります。質問を分けてお試しください。',
+    );
+  }
+  if (response.stopReason === 'max_tokens') {
+    context.warnings.push('回答が長すぎるため途中で打ち切られました。質問を分けてお試しください。');
+  }
+  if (response.stopReason === 'refusal') {
+    // Distinct from an empty answer, and worth saying: the operator should
+    // rephrase, not conclude the copilot is broken.
+    context.warnings.push(
+      'この質問には回答が拒否されました。表現を変えてお試しください。' +
+        '（この判断はAIプロバイダ側で行われます）',
     );
   }
 

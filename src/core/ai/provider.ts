@@ -36,13 +36,20 @@ export interface AiRequest {
   readonly messages: readonly AiMessage[];
   readonly tools?: readonly AiToolDefinition[];
   readonly maxTokens?: number;
+  /**
+   * Sampling temperature.
+   *
+   * Optional and normally unset: current Claude models reject it outright, and
+   * a default sent on every request would fail every request. Present for a
+   * provider or a pinned older model that still accepts one.
+   */
   readonly temperature?: number;
 }
 
 export interface AiResponse {
   readonly text: string;
   readonly toolCalls: readonly AiToolCall[];
-  readonly stopReason: 'end' | 'tool_use' | 'max_tokens' | 'other';
+  readonly stopReason: 'end' | 'tool_use' | 'max_tokens' | 'refusal' | 'other';
   readonly usage?: { readonly inputTokens: number; readonly outputTokens: number };
 }
 

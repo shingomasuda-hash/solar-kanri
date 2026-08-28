@@ -18,6 +18,18 @@ import type {
  * and credentials. src/core stays pure: the AiProvider interface, the safety
  * helpers and the task prompts are all there and testable without a key.
  */
+/**
+ * Their stop reasons to ours. `refusal` is carried through rather than folded
+ * into `other`: a safety decline is a different thing from a truncation, and
+ * the operator deserves to be told which one happened.
+ */
+const STOP_REASONS: Record<string, AiResponse['stopReason']> = {
+  end_turn: 'end',
+  tool_use: 'tool_use',
+  max_tokens: 'max_tokens',
+  refusal: 'refusal',
+};
+
 export class AnthropicProvider implements AiProvider {
   readonly id = 'anthropic';
   readonly modelId: string;
@@ -27,7 +39,8 @@ export class AnthropicProvider implements AiProvider {
     // Configuration is resolved by the caller (src/server/services/copilot.ts),
     // so this class has no opinion about where credentials come from.
     const apiKey = options.apiKey;
-    this.modelId = options.model ?? 'claude-sonnet-5';
+    // `||`, not `??`: AI_MODEL registered with an empty value is not a choice.
+    this.modelId = options.model || 'claude-opus-5';
     this.client = apiKey
       ? new Anthropic({ apiKey, ...(options.baseURL ? { baseURL: options.baseURL } : {}) })
       : null;
@@ -79,8 +92,14 @@ export class AnthropicProvider implements AiProvider {
 
     const response = await this.client.messages.create({
       model: this.modelId,
-      max_tokens: request.maxTokens ?? 2048,
-      temperature: request.temperature ?? 0.2,
+      // Generous because it is a ceiling, not a spend: only tokens actually
+      // produced are billed. A tight cap truncates an answer mid-sentence and
+      // costs a whole retry.
+      max_tokens: request.maxTokens ?? 16000,
+      // Temperature is sent only when a caller asks for one. Current Claude
+      // models reject the parameter with a 400, so the previous default of 0.2
+      // would have failed every request the moment a key was configured.
+      ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
       system: request.system,
       messages,
       ...(request.tools && request.tools.length > 0
@@ -111,14 +130,7 @@ export class AnthropicProvider implements AiProvider {
     return {
       text,
       toolCalls,
-      stopReason:
-        response.stop_reason === 'tool_use'
-          ? 'tool_use'
-          : response.stop_reason === 'max_tokens'
-            ? 'max_tokens'
-            : response.stop_reason === 'end_turn'
-              ? 'end'
-              : 'other',
+      stopReason: STOP_REASONS[response.stop_reason ?? ''] ?? 'other',
       usage: {
         inputTokens: response.usage.input_tokens,
         outputTokens: response.usage.output_tokens,
